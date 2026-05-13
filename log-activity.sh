@@ -11,7 +11,17 @@
 
 set -u
 
-LOG_DIR="${CLAUDE_WORKFLOW_DOCS_DIR:-$HOME/.claude/workflow-docs}"
+DOCS_DIR="${CLAUDE_WORKFLOW_DOCS_DIR:-$HOME/.claude/workflow-docs}"
+
+# Per-project log so different repos don't pollute each other's Live agents pane.
+PROJ_BASENAME="$(basename "$PWD" | tr -c 'a-zA-Z0-9._-' '-' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')"
+[ -z "$PROJ_BASENAME" ] && PROJ_BASENAME="project"
+PROJ_HASH_SHORT="$(printf '%s' "$PWD" | shasum 2>/dev/null | awk '{print substr($1, 1, 8)}')"
+[ -z "$PROJ_HASH_SHORT" ] && PROJ_HASH_SHORT="$(printf '%s' "$PWD" | md5sum 2>/dev/null | awk '{print substr($1, 1, 8)}')"
+[ -z "$PROJ_HASH_SHORT" ] && PROJ_HASH_SHORT="default"
+PROJECT_SLUG="${PROJ_BASENAME}-${PROJ_HASH_SHORT}"
+
+LOG_DIR="$DOCS_DIR/projects/$PROJECT_SLUG"
 LOG="$LOG_DIR/activity.jsonl"
 mkdir -p "$LOG_DIR" 2>/dev/null || exit 0
 

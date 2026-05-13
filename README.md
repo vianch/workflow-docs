@@ -65,7 +65,7 @@ It's small enough to live next to your code, version-controlled as JSON, and edi
 
 | Piece | Role |
 |---|---|
-| `hooks/open-workflow-docs.sh` | Opens Chrome on `SessionStart`. On `UserPromptSubmit`, rebuilds `index.html` if `flows.json` or the template changed. Picks `http://127.0.0.1:<port>/` when the server is up, falls back to `file://`. |
+| `hooks/open-workflow-docs.sh` | Opens Chrome on `SessionStart`. On `UserPromptSubmit`, rebuilds the per-project `index.html` under `projects/<slug>/` if `flows.json` or the template changed. Each project gets its own URL (`http://127.0.0.1:<port>/projects/<slug>/index.html`) so opening Claude Code in different repos never clobbers each other's tabs. Falls back to `file://` when the server isn't up. |
 | `hooks/workflow-docs-server.sh` | Idempotently brings up a `python3 -m http.server` on port `47318` (override `WORKFLOW_DOCS_PORT`) serving `~/.claude/workflow-docs/`. Required for the Live agents pane. |
 | `hooks/log-activity.sh` | Wired to `PreToolUse` / `PostToolUse` / `SubagentStart` / `SubagentStop`. Appends one JSONL event per tool call to `activity.jsonl` (rolling 500-line tail). |
 | `agents/workflow-doc-generator.md` | Subagent auto-routed when you ask Claude Code to add/edit/visualize a workflow. Reads/writes `flows.json`, validates the schema, refreshes the output. |
@@ -284,7 +284,7 @@ The hook looks for `flows.json` in this order — first one wins:
 1. `$PWD/flows.json` — in the repo, shared with the team
 2. `$PWD/.claude/flows.json` — usually gitignored, project-local
 3. `$PWD/docs/flows.json` — alongside other project docs
-4. `~/.claude/workflow-docs/projects/<cwd-hash>/flows.json` — **per-project sandbox under `~/.claude`** (zero project pollution; auto-created on first session)
+4. `~/.claude/workflow-docs/projects/<project-slug>/flows.json` — **per-project sandbox under `~/.claude`** (zero project pollution; auto-created on first session). Slug is `<basename(PWD)>-<8-char-hash>` so `~/.claude/workflow-docs/projects/` stays human-scannable (e.g. `my-app-a1b2c3d4/`).
 5. `~/.claude/workflow-docs/flows.json` — global fallback
 6. Falls back to the bundled `example-flows.json`
 
@@ -292,7 +292,7 @@ The hook looks for `flows.json` in this order — first one wins:
 
 The first time you open Claude Code in a new project (no `flows.json` exists in paths 1–4), the `bootstrap-flows.sh` hook:
 
-- Creates `~/.claude/workflow-docs/projects/<cwd-hash>/flows.json` seeded with the example.
+- Creates `~/.claude/workflow-docs/projects/<project-slug>/flows.json` seeded with the example.
 - Drops a `.needs-generation` marker next to it.
 - Injects a `SessionStart` context message telling Claude to invoke the `workflow-doc-generator` subagent and replace the placeholder with your project's actual architecture.
 

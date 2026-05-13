@@ -29,10 +29,11 @@ For sustained work on an app's docs, prefer invoking the `workflow-doc-generator
   1. `$PWD/flows.json` — committed to the repo, shared with the team.
   2. `$PWD/.claude/flows.json` — typically gitignored, project-local.
   3. `$PWD/docs/flows.json` — alongside the rest of project docs.
-  4. `$HOME/.claude/workflow-docs/projects/<cwd-hash>/flows.json` — **per-project sandbox under `~/.claude`** (zero project pollution). Auto-created on first session in a new project by the `bootstrap-flows.sh` hook.
+  4. `$HOME/.claude/workflow-docs/projects/<project-slug>/flows.json` — **per-project sandbox under `~/.claude`** (zero project pollution). Auto-created on first session in a new project by the `bootstrap-flows.sh` hook. The slug is `<basename(PWD)>-<8-char-hash-of-PWD>` (e.g. `my-app-a1b2c3d4`) so the directory is human-scannable but two same-named projects in different parents never collide.
   5. `$HOME/.claude/workflow-docs/flows.json` — global fallback.
   6. Falls back to the bundled `example-flows.json`.
-- Rendered output: `$HOME/.claude/workflow-docs/index.html` (single self-contained file with JSON inlined).
+- Rendered output: **per-project**, at `$HOME/.claude/workflow-docs/projects/<project-slug>/index.html` (single self-contained file with JSON inlined). The HTTP server serves the docs dir as root, so the page loads from `http://127.0.0.1:<port>/projects/<project-slug>/index.html`. Each project's tab is independent — opening Claude Code in repo A never clobbers repo B's view.
+- Per-project activity log: `$HOME/.claude/workflow-docs/projects/<project-slug>/activity.jsonl`. The Live agents pane in each project's tab only shows that project's activity.
 - Template: `$HOME/.claude/skills/workflow-visualizer/template.html` (this skill).
 - Canonical spec: `$HOME/.claude/skills/workflow-visualizer/PROMPT.md`.
 

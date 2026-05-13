@@ -20,16 +20,26 @@ DOCS_DIR="${CLAUDE_WORKFLOW_DOCS_DIR:-$HOME/.claude/workflow-docs}"
 SKILL_DIR="$HOME/.claude/skills/workflow-visualizer"
 
 # Per-project namespace under ~/.claude (zero pollution in the user's repo).
-CWD_HASH_PROJ="$(printf '%s' "$PWD" | shasum 2>/dev/null | awk '{print $1}')"
-[ -z "$CWD_HASH_PROJ" ] && CWD_HASH_PROJ="$(printf '%s' "$PWD" | md5sum 2>/dev/null | awk '{print $1}')"
-[ -z "$CWD_HASH_PROJ" ] && CWD_HASH_PROJ="default"
-PROJECT_FLOWS_JSON="$DOCS_DIR/projects/$CWD_HASH_PROJ/flows.json"
+# Directory key: <sanitized basename>-<8-char hash>. The hash suffix prevents
+# basename collisions when two projects share a name in different parent dirs.
+PROJ_BASENAME="$(basename "$PWD" | tr -c 'a-zA-Z0-9._-' '-' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')"
+[ -z "$PROJ_BASENAME" ] && PROJ_BASENAME="project"
+PROJ_HASH_SHORT="$(printf '%s' "$PWD" | shasum 2>/dev/null | awk '{print substr($1, 1, 8)}')"
+[ -z "$PROJ_HASH_SHORT" ] && PROJ_HASH_SHORT="$(printf '%s' "$PWD" | md5sum 2>/dev/null | awk '{print substr($1, 1, 8)}')"
+[ -z "$PROJ_HASH_SHORT" ] && PROJ_HASH_SHORT="default"
+PROJECT_SLUG="${PROJ_BASENAME}-${PROJ_HASH_SHORT}"
+PROJECT_FLOWS_JSON="$DOCS_DIR/projects/$PROJECT_SLUG/flows.json"
+
+# Back-compat fallback: old layout used the full 40-char hash directly.
+LEGACY_HASH="$(printf '%s' "$PWD" | shasum 2>/dev/null | awk '{print $1}')"
+LEGACY_FLOWS_JSON="$DOCS_DIR/projects/$LEGACY_HASH/flows.json"
 
 FLOWS_JSON_CANDIDATES=(
   "$PWD/flows.json"
   "$PWD/.claude/flows.json"
   "$PWD/docs/flows.json"
   "$PROJECT_FLOWS_JSON"
+  "$LEGACY_FLOWS_JSON"
   "$HOME/.claude/workflow-docs/flows.json"
 )
 TEMPLATE_HTML="$SKILL_DIR/template.html"
@@ -56,15 +66,18 @@ if [ -z "$FLOWS_SRC" ] && [ -f "$EXAMPLE_FLOWS" ]; then
   FLOWS_SRC="$EXAMPLE_FLOWS"
 fi
 
-OUT_HTML="$DOCS_DIR/index.html"
-OUT_FLOWS="$DOCS_DIR/flows.json"
+# Per-project served layout. Every project gets its own index.html + flows.json
+# under projects/<slug>/, so opening Claude Code in different repos no longer
+# clobbers each other's browser tabs.
+PROJECT_DIR="$DOCS_DIR/projects/$PROJECT_SLUG"
+mkdir -p "$PROJECT_DIR" 2>/dev/null || true
+OUT_HTML="$PROJECT_DIR/index.html"
+OUT_FLOWS="$PROJECT_DIR/flows.json"
 
-# Link (preferred) or copy the resolved flows.json into the docs dir. Symlink
-# lets the page's HTTP poll pick up direct edits to the source file in real
-# time, without waiting for the next hook fire to re-copy.
-if [ -n "$FLOWS_SRC" ]; then
-  # Replace any existing entry (file or symlink) so we always point at the
-  # current resolved source.
+# Link (preferred) or copy the resolved flows.json into the project's served
+# dir. Skip if the resolved source IS the served file (i.e. the project's own
+# flows.json under projects/<slug>/) — no self-symlinking.
+if [ -n "$FLOWS_SRC" ] && [ "$FLOWS_SRC" != "$OUT_FLOWS" ]; then
   if [ -L "$OUT_FLOWS" ] || [ -f "$OUT_FLOWS" ]; then
     EXISTING_TARGET="$(readlink "$OUT_FLOWS" 2>/dev/null || true)"
     if [ "$EXISTING_TARGET" != "$FLOWS_SRC" ]; then
@@ -154,7 +167,7 @@ if [ -f "$PORT_FILE" ]; then
   if [ -n "$PORT" ]; then
     # Quick sanity check the port is actually listening before we open it.
     if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-      URL="http://127.0.0.1:$PORT/index.html"
+      URL="http://127.0.0.1:$PORT/projects/$PROJECT_SLUG/index.html"
     fi
   fi
 fi

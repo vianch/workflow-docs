@@ -22,13 +22,29 @@ if [ "$PWD" = "$HOME" ] || [ "$PWD" = "$HOME/.claude" ] || [ "${#PWD}" -lt 5 ]; 
   exit 0
 fi
 
-CWD_HASH="$(printf '%s' "$PWD" | shasum 2>/dev/null | awk '{print $1}')"
-[ -z "$CWD_HASH" ] && CWD_HASH="$(printf '%s' "$PWD" | md5sum 2>/dev/null | awk '{print $1}')"
-[ -z "$CWD_HASH" ] && CWD_HASH="$(printf '%s' "$PWD" | md5 2>/dev/null)"
-[ -z "$CWD_HASH" ] && CWD_HASH="default"
+# Compute a human-readable project slug: <sanitized basename>-<8-char hash>.
+# The hash suffix prevents two projects named "my-app" in different parents
+# from colliding while still making the directory name greppable.
+PROJECT_BASENAME="$(basename "$PWD" | tr -c 'a-zA-Z0-9._-' '-' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')"
+[ -z "$PROJECT_BASENAME" ] && PROJECT_BASENAME="project"
+CWD_HASH_SHORT="$(printf '%s' "$PWD" | shasum 2>/dev/null | awk '{print substr($1, 1, 8)}')"
+[ -z "$CWD_HASH_SHORT" ] && CWD_HASH_SHORT="$(printf '%s' "$PWD" | md5sum 2>/dev/null | awk '{print substr($1, 1, 8)}')"
+[ -z "$CWD_HASH_SHORT" ] && CWD_HASH_SHORT="$(printf '%s' "$PWD" | md5 2>/dev/null | cut -c1-8)"
+[ -z "$CWD_HASH_SHORT" ] && CWD_HASH_SHORT="default"
+PROJECT_SLUG="${PROJECT_BASENAME}-${CWD_HASH_SHORT}"
 
 DOCS_DIR="$HOME/.claude/workflow-docs"
-PROJECT_DIR="$DOCS_DIR/projects/$CWD_HASH"
+PROJECT_DIR="$DOCS_DIR/projects/$PROJECT_SLUG"
+
+# Back-compat: look for a pre-existing project dir keyed by the full 40-char
+# hash and reuse it instead of creating a new one. Old installations had
+# projects/<full-hash>/; new ones use projects/<basename>-<8-hash>/.
+CWD_HASH_FULL="$(printf '%s' "$PWD" | shasum 2>/dev/null | awk '{print $1}')"
+[ -z "$CWD_HASH_FULL" ] && CWD_HASH_FULL="$(printf '%s' "$PWD" | md5sum 2>/dev/null | awk '{print $1}')"
+LEGACY_DIR="$DOCS_DIR/projects/$CWD_HASH_FULL"
+if [ -d "$LEGACY_DIR" ] && [ ! -d "$PROJECT_DIR" ]; then
+  PROJECT_DIR="$LEGACY_DIR"
+fi
 PROJECT_FLOWS="$PROJECT_DIR/flows.json"
 PROJECT_META="$PROJECT_DIR/.meta"
 PROJECT_NEEDS_GEN="$PROJECT_DIR/.needs-generation"

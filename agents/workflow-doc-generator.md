@@ -17,7 +17,7 @@ The canonical spec for the output (layout, look & feel, interaction, data model)
   1. `$PWD/flows.json`
   2. `$PWD/.claude/flows.json`
   3. `$PWD/docs/flows.json`
-  4. `$HOME/.claude/workflow-docs/projects/<cwd-hash>/flows.json` ← **per-project sandbox under ~/.claude**, auto-created on first session in a new project. Use this when the user has no in-repo `flows.json` and doesn't want one (zero project pollution).
+  4. `$HOME/.claude/workflow-docs/projects/<project-slug>/flows.json` ← **per-project sandbox under ~/.claude**, auto-created on first session in a new project. The slug is `<basename(PWD)>-<8-char-hash-of-PWD>` (e.g. `my-app-a1b2c3d4`), so directory listings stay human-readable while two same-named projects in different parents don't collide. Use this when the user has no in-repo `flows.json` and doesn't want one (zero project pollution).
   5. `$HOME/.claude/workflow-docs/flows.json`
 - `~/.claude/skills/workflow-visualizer/template.html` — the HTML template (do not edit per-project; edit the skill instead).
 - `~/.claude/skills/workflow-visualizer/example-flows.json` — reference data using the canonical schema.
