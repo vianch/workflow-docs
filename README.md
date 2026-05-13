@@ -27,7 +27,9 @@ It's small enough to live next to your code, version-controlled as JSON, and edi
 - **Interactive swim-lane diagram** — vertical lanes for *Actors → Client surfaces → Backend/functions → Storage/data → Pipeline → Distribution → External services*, components rendered as monospace-named cards tinted by their category colour.
 - **Click-to-highlight per flow** — involved cards stay bright, others dim to 20%, curved SVG bezier arrows draw between cards with gold step-number badges at each arrow's midpoint.
 - **Live agents pane** — two-tab bottom panel: **Agents** shows each running agent with its goal (the user prompt for `main`, the `Task` tool prompt for subagents), tool count, status, and most-recent tool. **Activity** shows the full chronological event stream.
+- **Kanban board** — an **Architecture | Kanban** tab toggle in the main canvas showing **Planned / In Dev / Done** columns. Uses a two-tier data source: explicit `TodoWrite` task data when available, or a live synthesized view derived from the agents activity stream as a fallback — so the board is never empty.
 - **Live trail on the board** — when no manual flow is selected, the agent's recent path through your components is drawn as dashed green arrows with numbered badges; touched cards glow green, untouched ones dim.
+- **Architecture in Claude's memory** — on every session start, `bootstrap-flows.sh` reads your project's `flows.json` and emits a compact summary (app, lanes, components, flows) as `SessionStart.additionalContext`. The agent sees the architecture from turn 0 of every conversation without you having to remind it. Typical cost: 500–1500 tokens per session.
 - **Themes** — toggle dark (`shades-of-purple`) ↔ light (`ayu-light`) via the animated sun/moon switch in the canvas toolbar. Defaults to dark, persisted in `localStorage`.
 - **Resizable layout** — the sidebar resizes horizontally (280–480 px); the three panes resize vertically. All sizes persisted.
 - **Live flows / steps / board** — when opened over HTTP (the default), the diagram polls a symlinked `flows.json` every 1 s. Edit `flows.json` in your editor and the lanes, cards, flows list, and selected steps update in place without a refresh.
@@ -192,6 +194,71 @@ If routing ever feels off, name it explicitly:
 Use the workflow-doc-generator subagent to add a flow for "Refund order".
 ```
 
+### Managing Kanban tasks with the `workflow-kanban-task` skill
+
+The `workflow-kanban-task` skill lets you manage the board in plain English. Claude routes to it automatically whenever you use task-related phrasing. No commands, no IDs to remember.
+
+**Create tasks:**
+```
+add a task: implement the auth refresh flow
+add high priority task: fix the billing webhook
+add a task for cleaning up the CSS
+```
+
+**Move tasks:**
+```
+start the auth task        → moves it to In Dev
+move billing task to in dev
+```
+
+**Complete tasks:**
+```
+done with the CSS task
+mark auth refresh as done
+complete the billing webhook
+```
+
+**List the board:**
+```
+show tasks
+what's on the board
+list kanban
+```
+
+**Remove tasks:**
+```
+remove the CSS cleanup task
+delete task t-3
+clear all done tasks
+```
+
+The skill reads and writes `~/.claude/workflow-docs/projects/<slug>/tasks.json` directly. The board reflects every change within 1 second.
+
+### Populating the Kanban board
+
+The Kanban tab is always live — it shows a synthesized view of running agents from the moment activity starts. But for richer cards with explicit task descriptions and priorities, ask Claude to plan first using `TodoWrite`:
+
+```
+Before starting, write out a todo list for everything you need to do.
+```
+
+or:
+
+```
+Plan this work as tasks first, then execute.
+```
+
+Once the agent calls `TodoWrite`, the board shows the explicit task list with full descriptions and `High` / `Medium` / `Low` priority badges. Cards no longer carry the green `live` badge. The board updates within 1 s of every `TodoWrite` call.
+
+**Two-tier data source at a glance:**
+
+| Source | When active | What you see |
+|---|---|---|
+| `TodoWrite` (explicit) | After asking Claude to plan | Exact task text, priorities, no `live` badge |
+| Synthesized fallback | Always / when no todos exist | Agent goals or last known action, green `live` badge |
+
+Both sources are per-project — switching between repos in different terminal tabs never mixes their boards.
+
 ### Tips for good `label`s
 
 `step.label` shows up next to each numbered arrow and in the Steps pane — write it like a log line, not prose:
@@ -298,6 +365,22 @@ The first time you open Claude Code in a new project (no `flows.json` exists in 
 
 The file lives entirely under `~/.claude` — your repo stays clean. Want to share the diagram with your team? Move it to `$PWD/flows.json` (the renderer will pick it up via path 1 on the next session). The subagent removes the marker after the first generation so you only get nudged once per project.
 
+### Architecture summary on every session (Claude memory)
+
+After the first session bootstrap, every subsequent session in the project triggers a second behaviour from the same hook: it reads `flows.json` and emits a compact summary of the architecture as `SessionStart.additionalContext`. Claude sees the project's components and flows from turn 0 — no need to ask it to "read the flows file first" before architecture-shaped questions.
+
+The summary contains:
+
+| Section | Contents |
+| --- | --- |
+| Header | App name + description, live-view URL |
+| Lanes | Left-to-right spine (`Actors → Client surfaces → …`) |
+| Categories | The colour-coded legend (`Actor`, `Client surface`, …) |
+| Components | `name [column / category] — subtitle` for each, capped at 50 |
+| Flows | `name (N steps) — description` for each, capped at 20 |
+
+Typical payload is **500–1500 tokens** per session. If you don't want this, delete `~/.claude/hooks/bootstrap-flows.sh` and the matching `SessionStart` entry from `~/.claude/settings.json`.
+
 ---
 
 ## Turn it off
@@ -305,6 +388,15 @@ The file lives entirely under `~/.claude` — your repo stays clean. Want to sha
 Easiest: rename or delete `~/.claude/hooks/open-workflow-docs.sh` — the hook silently no-ops. Or remove the `SessionStart` and `UserPromptSubmit` entries from `~/.claude/settings.json`.
 
 ---
+
+## Skills in this kit
+
+| Skill | What it does |
+|---|---|
+| `workflow-visualizer` | Owns the `flows.json` schema, the `template.html` renderer, and the canonical `PROMPT.md` spec. Use when creating or editing the architecture diagram. |
+| `workflow-kanban-task` | Plain-English task management for the Kanban board. Add, move, complete, list, and remove tasks. Writes `tasks.json` which the board polls every 1 s. |
+
+The `workflow-doc-generator` subagent wraps `workflow-visualizer` for whole-project documentation generation.
 
 ## Files in this folder
 

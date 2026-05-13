@@ -85,6 +85,33 @@ append_line() {
   printf '%s\n' "$1" >> "$LOG" 2>/dev/null || true
 }
 
+# ---------- snapshot tasks.json on TodoWrite ----------
+# TodoWrite carries the full todos array — capture it so the Kanban board has
+# up-to-date task state without any additional polling mechanism.
+if [ "$EVENT" = "pre-tool-use" ] && [ "$TOOL" = "TodoWrite" ]; then
+  TASKS_FILE="$LOG_DIR/tasks.json"
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$PAYLOAD" | jq -c '.tool_input.todos // []' > "$TASKS_FILE" 2>/dev/null || true
+  elif command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$PAYLOAD" | python3 -c "
+import sys, json, io
+raw = sys.stdin.read()
+try:
+    d = json.loads(raw) if raw else {}
+    todos = (d.get('tool_input') or {}).get('todos') or []
+    with io.open('$TASKS_FILE', 'w') as f: json.dump(todos, f)
+except Exception: pass
+" 2>/dev/null || true
+  fi
+fi
+
+# Also listen for TaskCreate / TaskUpdate (MCP task tools that some setups use)
+if [ "$EVENT" = "pre-tool-use" ] && { [ "$TOOL" = "TaskCreate" ] || [ "$TOOL" = "TaskUpdate" ]; }; then
+  # Append a task-change marker so the Kanban knows to re-check task files.
+  TS_TASK="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '{"ts":"%s","event":"task-change","tool":"%s"}\n' "$TS_TASK" "$TOOL" >> "$LOG_DIR/activity.jsonl" 2>/dev/null || true
+fi
+
 # ---------- emit the primary event ----------
 TS_JSON="\"$TS\""
 EVENT_JSON="$(escape "$EVENT")"

@@ -41,6 +41,13 @@ if [ -f "$SRC_DIR/skills/workflow-visualizer/PROMPT.md" ]; then
 fi
 echo "  skills/workflow-visualizer/{SKILL.md,PROMPT.md,template.html,example-flows.json}"
 
+# workflow-kanban-task skill
+mkdir -p "$CLAUDE_HOME/skills/workflow-kanban-task"
+if [ -f "$SRC_DIR/skills/workflow-kanban-task/SKILL.md" ]; then
+  install -m 644 "$SRC_DIR/skills/workflow-kanban-task/SKILL.md" "$CLAUDE_HOME/skills/workflow-kanban-task/SKILL.md"
+  echo "  skills/workflow-kanban-task/SKILL.md"
+fi
+
 # settings.json — merge, don't overwrite
 SETTINGS="$CLAUDE_HOME/settings.json"
 FRAGMENT="$SRC_DIR/settings.json"

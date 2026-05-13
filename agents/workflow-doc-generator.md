@@ -147,6 +147,25 @@ The renderer accepts an older `packages` schema with `label` / `annotation` / `p
 
 Bidirectional or self-edges are allowed: a step where `from === to` (e.g. `end-user → end-user` for "apply update on restart") renders as a numbered badge directly on the card. Bidirectional pairs in a single flow (A→B and B→A) curve in opposite directions so they don't overlap.
 
+## Kanban integration — using TodoWrite
+
+The `workflow-visualizer` template's Kanban board has two data tiers:
+
+1. **Explicit tasks** — written by `TodoWrite`. When you receive a multi-step request (e.g. "generate flows.json for this project"), **write a todo list first** using `TodoWrite` before executing. This populates the Kanban board with real task cards (exact descriptions + priorities) instead of the synthesized fallback. Example pattern:
+
+   ```
+   [Call TodoWrite with todos]:
+   - { id: "1", content: "Inventory packages from package.json files", status: "pending", priority: "high" }
+   - { id: "2", content: "Draft categories and columns", status: "pending", priority: "high" }
+   - { id: "3", content: "Write flows for the main user flows", status: "pending", priority: "medium" }
+   ```
+
+   Then update each item to `in_progress` when starting it and `completed` when done. The board reflects status changes within 1 s.
+
+2. **Synthesized fallback** — when `TodoWrite` is not called, the board derives cards from the agents activity stream (goals from `UserPromptSubmit`, status from subagent lifecycle). You don't need to do anything for this — it's automatic.
+
+**Rule**: For any task with 3+ discrete steps, call `TodoWrite` first. For single-step requests, the synthesized view is sufficient.
+
 ## Anti-patterns to avoid
 
 - Do not invent components that are not in the codebase or in the existing `flows.json`. If unsure, list current files with `Glob`/`Grep` first.

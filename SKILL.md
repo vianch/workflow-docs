@@ -47,6 +47,19 @@ When you start a new Claude Code session in a directory that has no `flows.json`
 
 This keeps every project diagram private to your machine (under `~/.claude`, not in the repo) unless you explicitly ask to promote it to `$PWD/flows.json`.
 
+### Architecture summary injected into every session
+
+On **every** session start in a project that already has a `flows.json`, `bootstrap-flows.sh` reads it and emits a compact summary as `SessionStart.additionalContext`. The agent sees:
+
+- App name + description
+- Lane spine (`Actors → Client surfaces → … → External services`)
+- Category legend
+- Every component (`name [column / category] — subtitle`), capped at 50
+- Every flow (`name (N steps) — description`), capped at 20
+- The live-view URL for this project
+
+Typical payload is **500–1500 tokens** depending on project size. The agent uses this as background context for architecture and data-flow questions without needing to re-read the JSON. To edit the underlying file, the user invokes the `workflow-doc-generator` subagent — never modify `flows.json` from this context-injection path.
+
 The template has a `<script type="application/json" id="flows-data">__FLOWS_JSON__</script>` placeholder; the hook (`$HOME/.claude/hooks/open-workflow-docs.sh`) replaces `__FLOWS_JSON__` with the JSON content so the page is fully self-contained.
 
 ## Canonical flows.json schema
@@ -141,6 +154,74 @@ Refuse to write JSON that fails any of these:
 ### Backwards compatibility
 
 The renderer also accepts an older `packages` schema (with `package.label`, `step.annotation`, `step.payload`) and normalises it at load time. Always **write new files in the canonical schema** above — the old format is for read-compat only.
+
+## Kanban board (Architecture | Kanban tab toggle)
+
+The template has a tab toggle at the top of `<main>` with two views:
+
+- **Architecture** (default) — the swim-lane diagram. All existing behaviour unchanged.
+- **Kanban** — a real-time three-column board:
+  - **Planned** — tasks with `status: "pending"`
+  - **In Dev** — tasks with `status: "in_progress"` (column glows gold; spinning dot on the heading)
+  - **Done** — tasks with `status: "completed"`
+
+Task cards show: content (up to 3 lines), a priority badge (`High` / `Medium` / `Low` with colour coding), and the owner/agent name. Left border colour matches priority (red = high, gold = medium, gray = low).
+
+The Kanban tab shows a badge counting In Dev tasks. Cards animate in when they appear and smoothly re-sort as status changes.
+
+### Two-tier data source
+
+The Kanban has two sources, used in priority order:
+
+**Tier 1 — `tasks.json` (from `TodoWrite`)**
+
+`tasks.json` is written automatically by `log-activity.sh` whenever Claude Code calls the native `TodoWrite` tool. This only fires when the agent explicitly plans multi-step work — it will not populate in short single-step sessions.
+
+To trigger it, ask Claude to plan before doing:
+
+```
+Before starting, write out a task list for everything you need to do using your todo tool.
+```
+
+or simply:
+
+```
+Plan this work as tasks first.
+```
+
+Once `TodoWrite` fires, `log-activity.sh` extracts `tool_input.todos` (the full array with `id`, `content`, `status`, `priority`) and writes it to `~/.claude/workflow-docs/projects/<slug>/tasks.json`. The board picks it up on the next 1 s poll. Cards show the exact task text and priority as written by the agent; no `live` badge.
+
+**Tier 2 — Synthesized from the agents map (always-on fallback)**
+
+When `tasks.json` is empty or missing — which is most sessions — the board synthesizes a live view from the `agents` map maintained by the activity poller:
+
+- Each known agent (main + any subagents) becomes one card.
+- Card content = agent's goal (from `UserPromptSubmit` / Task-tool spawn prompt) or, if no goal is known, the last recorded tool + target.
+- Status is derived from subagent lifecycle events: `in_progress` if the agent was heard from within the last 30 s, `completed` once `subagent-stop` fires, `pending` if it hasn't been heard from yet.
+- Cards carry a small green **`live`** badge to signal they are synthesized, not explicitly planned.
+
+The synthesized view populates as soon as the first tool call fires (within the first poll cycle, 800 ms). It refreshes continuously. When the agent eventually calls `TodoWrite`, the explicit tasks take over and the `live` badges disappear.
+
+| Source | When active | Card content | `live` badge |
+|---|---|---|---|
+| `tasks.json` (TodoWrite) | After agent calls `TodoWrite` | Exact task text + priority | No |
+| Synthesized from agents | Always — fallback | Agent goal or last tool+target | Yes (green) |
+
+**Implementation detail**: `log-activity.sh` detects `tool_name = "TodoWrite"` in `PreToolUse` payloads and uses `jq` (or `python3` as fallback) to extract and write the todos array. `TaskCreate` / `TaskUpdate` MCP tool calls also emit a `task-change` event in `activity.jsonl`.
+
+### Managing tasks with the `workflow-kanban-task` skill
+
+The companion skill `workflow-kanban-task` provides plain-English task management. Claude routes to it automatically. Example phrases:
+
+```
+add a task: implement auth refresh        → creates card in Planned
+start the auth task                       → moves to In Dev
+done with the auth task                   → moves to Done
+show tasks                                → prints the board as a table
+clear done tasks                          → removes all completed items
+```
+
+See `~/.claude/skills/workflow-kanban-task/SKILL.md` for the full operation reference and natural-language mapping table.
 
 ## Rendering contract (what template.html does)
 

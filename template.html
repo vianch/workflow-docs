@@ -196,8 +196,8 @@
   /* ===== Main canvas (swim lanes) ===== */
   main {
     grid-area: main;
-    position: relative;
-    overflow: auto;
+    display: flex; flex-direction: column;
+    overflow: hidden;
     padding: 18px 22px 22px;
     background: var(--bg);
   }
@@ -581,6 +581,160 @@
   }
 
   .hidden { display: none !important; }
+
+  /* View wrappers inside main — both fill all remaining height */
+  #view-architecture {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    min-height: 0;
+  }
+  #view-kanban {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* ===== Main view tabs (Architecture | Kanban) ===== */
+  .main-view-tabs {
+    display: flex; gap: 4px; padding: 0 0 12px;
+    flex-shrink: 0;
+  }
+  .main-view-tab {
+    font: 600 11.5px var(--sans);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    background: var(--panel); color: var(--text-dim);
+    border: 1px solid var(--border-strong);
+    padding: 5px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color .15s, color .15s, border-color .15s;
+  }
+  .main-view-tab:hover { background: var(--panel-soft); color: var(--text-muted); }
+  .main-view-tab.active {
+    background: var(--panel-soft);
+    color: var(--accent-strong);
+    border-color: var(--accent);
+  }
+
+  /* ===== Kanban board ===== */
+  .kanban {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr;
+    gap: 16px;
+    height: 100%;
+    min-height: 0;
+  }
+  .kb-col {
+    display: flex; flex-direction: column;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .kb-col-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+  .kb-col-head .kb-col-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .kb-col-head .kb-col-count {
+    margin-left: auto;
+    font-size: 11px; color: var(--text-muted);
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    padding: 1px 7px;
+    border-radius: 999px;
+    letter-spacing: normal; text-transform: none;
+  }
+  .kb-col[data-status="planned"]    .kb-col-dot { background: var(--text-dim); }
+  .kb-col[data-status="in_progress"] .kb-col-dot { background: var(--accent); animation: live-pulse 1.6s ease-out infinite; }
+  .kb-col[data-status="done"]       .kb-col-dot { background: var(--live); }
+
+  .kb-cards {
+    padding: 10px 10px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    flex: 1; overflow-y: auto;
+  }
+
+  .kb-card {
+    background: var(--card);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--text-dim);
+    border-radius: 7px;
+    padding: 10px 12px;
+    animation: kb-slide-in .22s ease-out;
+    transition: border-color .2s, box-shadow .2s;
+    position: relative;
+    cursor: default;
+  }
+  @keyframes kb-slide-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .kb-card[data-priority="high"]   { border-left-color: var(--red-color,   #ff628c); }
+  .kb-card[data-priority="medium"] { border-left-color: var(--accent);               }
+  .kb-card[data-priority="low"]    { border-left-color: var(--text-dim);              }
+
+  .kb-card-content {
+    font-size: 12.5px; color: var(--text);
+    line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  }
+  .kb-card-footer {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 8px;
+  }
+  .kb-priority {
+    font: 600 9.5px var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+  }
+  .kb-priority.high   { background: rgba(255, 98, 140, 0.15); color: var(--red-color,  #ff628c); border-color: rgba(255,98,140,0.35); }
+  .kb-priority.medium { background: var(--accent-soft);        color: var(--accent);              border-color: rgba(250,208,0,0.35); }
+  .kb-priority.low    { background: var(--panel-soft);         color: var(--text-dim);             border-color: var(--border); }
+  .kb-agent {
+    font: 11px var(--mono); color: var(--text-muted);
+    margin-left: auto;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 120px;
+  }
+  /* "live" badge shown on synthesized cards (no explicit TodoWrite) */
+  .kb-synth-badge {
+    font: 600 9px var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--live-soft, rgba(165,255,144,0.14));
+    color: var(--live);
+    border: 1px solid var(--live);
+    opacity: 0.75;
+  }
+  .kb-empty {
+    color: var(--text-dim); font-size: 12px;
+    text-align: center; padding: 24px 12px;
+  }
+
+  /* In-progress column glows subtly */
+  .kb-col[data-status="in_progress"] {
+    border-color: rgba(250, 208, 0, 0.35);
+    box-shadow: 0 0 20px -12px var(--accent);
+  }
 </style>
 </head>
 <body>
@@ -618,6 +772,14 @@ __FLOWS_JSON__
 </header>
 
 <main id="main">
+  <div class="main-view-tabs">
+    <button class="main-view-tab active" data-view="architecture">Architecture</button>
+    <button class="main-view-tab" data-view="kanban">
+      Kanban
+      <span id="kanban-badge" style="display:none; margin-left:6px; background:var(--accent); color:var(--bg); font-size:10px; font-weight:700; padding:1px 6px; border-radius:999px; font-family:var(--mono)"></span>
+    </button>
+  </div>
+  <div id="view-architecture">
   <div class="lanes" id="lanes"></div>
   <svg class="arrows" id="arrows" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -629,6 +791,36 @@ __FLOWS_JSON__
       </marker>
     </defs>
   </svg>
+  </div><!-- /view-architecture -->
+
+  <div id="view-kanban" class="hidden">
+    <div class="kanban" id="kanban">
+      <div class="kb-col" data-status="planned">
+        <div class="kb-col-head">
+          <span class="kb-col-dot"></span>
+          Planned
+          <span class="kb-col-count" id="kb-count-planned">0</span>
+        </div>
+        <div class="kb-cards" id="kb-planned"><div class="kb-empty">No planned tasks</div></div>
+      </div>
+      <div class="kb-col" data-status="in_progress">
+        <div class="kb-col-head">
+          <span class="kb-col-dot"></span>
+          In Dev
+          <span class="kb-col-count" id="kb-count-in_progress">0</span>
+        </div>
+        <div class="kb-cards" id="kb-in_progress"><div class="kb-empty">No active tasks</div></div>
+      </div>
+      <div class="kb-col" data-status="done">
+        <div class="kb-col-head">
+          <span class="kb-col-dot"></span>
+          Done
+          <span class="kb-col-count" id="kb-count-done">0</span>
+        </div>
+        <div class="kb-cards" id="kb-done"><div class="kb-empty">No completed tasks</div></div>
+      </div>
+    </div>
+  </div><!-- /view-kanban -->
 </main>
 
 <aside class="side" id="side">
@@ -711,6 +903,9 @@ __FLOWS_JSON__
     });
     setupResize();
     window.addEventListener('resize', () => requestAnimationFrame(redrawArrows));
+    // Redraw arrows when the architecture view is scrolled.
+    const viewArchEl = $('view-architecture');
+    if (viewArchEl) viewArchEl.addEventListener('scroll', () => requestAnimationFrame(redrawArrows));
 
     data = readInlineData();
     if (!data) {
@@ -729,6 +924,19 @@ __FLOWS_JSON__
     } else {
       setLiveStatus('off', 'offline (open via http://)');
     }
+  }
+
+  // ===== Main view tabs (Architecture | Kanban) =====
+  let currentMainView = 'architecture';
+  document.querySelectorAll('.main-view-tab').forEach((btn) => {
+    btn.addEventListener('click', () => switchMainView(btn.dataset.view));
+  });
+  function switchMainView(view) {
+    currentMainView = view;
+    document.querySelectorAll('.main-view-tab').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+    $('view-architecture').classList.toggle('hidden', view !== 'architecture');
+    $('view-kanban').classList.toggle('hidden', view !== 'kanban');
+    if (view === 'architecture') requestAnimationFrame(redrawArrows);
   }
 
   // ===== Resize handles =====
@@ -1079,13 +1287,15 @@ __FLOWS_JSON__
     clearArrows();
     const flow = data.flows.find((f) => f.id === flowId);
     if (!flow) return;
-    const mainEl = $('main'), svg = $('arrows'), lanesEl = $('lanes');
+    // Use #view-architecture as the positioning parent — it is the actual scroll
+    // container since <main> switched to display:flex with overflow:hidden.
+    const viewEl = $('view-architecture'), svg = $('arrows'), lanesEl = $('lanes');
     const lr = lanesEl.getBoundingClientRect();
-    const mr = mainEl.getBoundingClientRect();
+    const vr = viewEl.getBoundingClientRect();
     svg.setAttribute('width', lr.width);
-    svg.setAttribute('height', Math.max(lr.height, mr.height));
-    svg.style.left = (lr.left - mr.left + mainEl.scrollLeft) + 'px';
-    svg.style.top  = (lr.top  - mr.top  + mainEl.scrollTop)  + 'px';
+    svg.setAttribute('height', Math.max(lr.height, vr.height));
+    svg.style.left = (lr.left - vr.left + viewEl.scrollLeft) + 'px';
+    svg.style.top  = (lr.top  - vr.top  + viewEl.scrollTop)  + 'px';
 
     const pairKey = (a, b) => a + '||' + b;
     const stepKeys = new Set(flow.steps.map((s) => pairKey(s.from, s.to)));
@@ -1185,14 +1395,14 @@ __FLOWS_JSON__
     const lastId = compact[compact.length - 1].compId;
     const lastCard = document.querySelector('.card[data-comp-id="' + cssEscape(lastId) + '"]');
     if (lastCard) lastCard.classList.add('live-current');
-    // Position SVG.
-    const mainEl = $('main'), svg = $('arrows'), lanesEl = $('lanes');
+    // Position SVG — same container fix as drawArrowsForFlow.
+    const viewEl = $('view-architecture'), svg = $('arrows'), lanesEl = $('lanes');
     const lr = lanesEl.getBoundingClientRect();
-    const mr = mainEl.getBoundingClientRect();
+    const vr = viewEl.getBoundingClientRect();
     svg.setAttribute('width', lr.width);
-    svg.setAttribute('height', Math.max(lr.height, mr.height));
-    svg.style.left = (lr.left - mr.left + mainEl.scrollLeft) + 'px';
-    svg.style.top  = (lr.top  - mr.top  + mainEl.scrollTop)  + 'px';
+    svg.setAttribute('height', Math.max(lr.height, vr.height));
+    svg.style.left = (lr.left - vr.left + viewEl.scrollLeft) + 'px';
+    svg.style.top  = (lr.top  - vr.top  + viewEl.scrollTop)  + 'px';
     for (let i = 1; i < compact.length; i++) {
       const from = compact[i - 1].compId, to = compact[i].compId;
       if (from === to) { drawSelfBadge(from, i, false, true); continue; }
@@ -1256,6 +1466,8 @@ __FLOWS_JSON__
       }
       if (currentTab === 'activity') renderActivity();
       renderAgents();
+      // Kanban fallback: re-render from agents when no TodoWrite data is available.
+      if (kanbanTasks.length === 0) renderKanban();
       if (!selectedFlowId) requestAnimationFrame(applyLiveTrail);
       setLiveStatus('on', 'live · ' + agents.size + ' agents');
     } catch (_) {
@@ -1400,6 +1612,116 @@ __FLOWS_JSON__
       const d = new Date(ts);
       return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
     } catch (_) { return ''; }
+  }
+
+  // ===== Kanban board =====
+  let kanbanTasks = [];
+  let kanbanSig = '';
+
+  // Poll tasks.json (written by log-activity.sh on every TodoWrite call)
+  if (location.protocol !== 'file:') {
+    pollTasks();
+    setInterval(pollTasks, 1000);
+  }
+
+  async function pollTasks() {
+    try {
+      const res = await fetch('./tasks.json?_=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) return;
+      const text = await res.text();
+      if (text === kanbanSig) return;
+      kanbanSig = text;
+      kanbanTasks = JSON.parse(text) || [];
+      renderKanban();
+    } catch (_) { /* tasks.json may not exist yet — fine */ }
+  }
+
+  // Build a task list from the agents map when no TodoWrite data is available.
+  // Each known agent becomes a card; status is derived from subagent lifecycle events.
+  function synthesizeTasksFromActivity() {
+    if (!agents.size) return [];
+    const now = Date.now();
+    const tasks = [];
+    for (const a of agents.values()) {
+      // Determine status: if heard from within 30s → in_progress; done → completed; else pending.
+      let status = a.status;
+      if (status !== 'done' && a.lastTs) {
+        const ago = now - new Date(a.lastTs).getTime();
+        if (isFinite(ago) && ago > 30000) status = 'pending';
+        else status = 'in_progress';
+      }
+      const content = a.goal
+        || (a.lastTool ? `${a.name} — ${a.lastTool}${a.lastTarget ? ': ' + a.lastTarget.slice(0, 80) : ''}` : a.name);
+      tasks.push({
+        id: a.id,
+        content,
+        status: status === 'idle' ? 'pending' : status === 'done' ? 'completed' : 'in_progress',
+        priority: a.name === 'main' ? 'high' : 'medium',
+        owner: a.name,
+        _synthetic: true,
+      });
+    }
+    // Sort: in_progress first, then pending, then completed.
+    const order = { in_progress: 0, pending: 1, completed: 2 };
+    tasks.sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3));
+    return tasks;
+  }
+
+  function renderKanban() {
+    // Prefer explicit TodoWrite data; fall back to synthesized view from activity.
+    const tasks = kanbanTasks.length > 0 ? kanbanTasks : synthesizeTasksFromActivity();
+    const isSynthetic = kanbanTasks.length === 0;
+
+    const byStatus = { pending: [], in_progress: [], completed: [] };
+    for (const t of tasks) {
+      const s = t.status || 'pending';
+      if (!byStatus[s]) byStatus[s] = [];
+      byStatus[s].push(t);
+    }
+
+    // Map our three columns to the schema status values.
+    const colMap = { planned: 'pending', in_progress: 'in_progress', done: 'completed' };
+    let inDevCount = 0;
+
+    for (const [colId, statusKey] of Object.entries(colMap)) {
+      const items = byStatus[statusKey] || [];
+      const container = $('kb-' + colId);
+      const countEl = $('kb-count-' + (colId === 'done' ? 'done' : colId));
+      if (!container) continue;
+      if ($('kb-count-' + colId)) $('kb-count-' + colId).textContent = items.length;
+      if (statusKey === 'in_progress') inDevCount = items.length;
+
+      if (!items.length) {
+        const emptyMsg = isSynthetic
+          ? (statusKey === 'in_progress' ? 'Waiting for agent activity…' : statusKey === 'pending' ? 'No queued work' : 'Nothing finished yet')
+          : (statusKey === 'pending' ? 'No planned tasks' : statusKey === 'in_progress' ? 'No active tasks' : 'No completed tasks');
+        container.innerHTML = `<div class="kb-empty">${emptyMsg}</div>`;
+        continue;
+      }
+
+      container.innerHTML = items.map((t) => {
+        const prio = (t.priority || 'medium').toLowerCase();
+        const prioLabel = prio.charAt(0).toUpperCase() + prio.slice(1);
+        const content = escapeHtml(t.content || t.title || t.id || '?');
+        const agentHtml = t.owner ? `<span class="kb-agent">${escapeHtml(t.owner)}</span>` : '';
+        const synthBadge = t._synthetic ? '<span class="kb-synth-badge">live</span>' : '';
+        return `<div class="kb-card" data-priority="${escapeHtml(prio)}" data-id="${escapeHtml(t.id || '')}">
+          <div class="kb-card-content">${content}</div>
+          <div class="kb-card-footer">
+            <span class="kb-priority ${escapeHtml(prio)}">${prioLabel}</span>
+            ${synthBadge}
+            ${agentHtml}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Kanban tab badge: count In Dev tasks.
+    const badge = $('kanban-badge');
+    if (badge) {
+      badge.textContent = inDevCount;
+      badge.style.display = inDevCount > 0 ? 'inline' : 'none';
+    }
   }
 
   function escapeHtml(s) {

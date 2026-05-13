@@ -11,7 +11,8 @@ If you've never touched `~/.claude/` before, skip to *Manual install* — it's t
 - macOS, Linux, or Windows (Git Bash / WSL)
 - [Claude Code](https://docs.claude.com/en/docs/claude-code) installed and run at least once (so `~/.claude/` exists)
 - Google Chrome (or Chromium) for the auto-open behaviour — optional; you can always open the page manually
-- One of: `jq` *or* `python3` — only if you already have a `~/.claude/settings.json` and you want the automated installer to merge into it safely
+- **`python3`** — required for the activity logger (timestamps), the index.html builder (JSON inlining), the local HTTP server (`python3 -m http.server`), and the session-start architecture-summary injector. macOS ships with it; on Linux install via your package manager.
+- `jq` is optional but recommended (the installer falls back to `python3` for the `settings.json` merge if `jq` is missing).
 
 ---
 
@@ -54,19 +55,29 @@ mkdir -p ~/.claude/skills/workflow-visualizer
 mkdir -p ~/.claude/workflow-docs
 ```
 
-### Step 2 — Copy six files from this folder into `~/.claude/`
+### Step 2 — Copy nine files from this folder into `~/.claude/`
 
 Assuming your shell is in the `claude-agents-visualizer/` folder:
 
 ```bash
-cp open-workflow-docs.sh         ~/.claude/hooks/open-workflow-docs.sh
-chmod +x                          ~/.claude/hooks/open-workflow-docs.sh
+# Hooks
+cp open-workflow-docs.sh      ~/.claude/hooks/open-workflow-docs.sh
+cp log-activity.sh            ~/.claude/hooks/log-activity.sh
+cp workflow-docs-server.sh    ~/.claude/hooks/workflow-docs-server.sh
+cp bootstrap-flows.sh         ~/.claude/hooks/bootstrap-flows.sh
+chmod +x ~/.claude/hooks/open-workflow-docs.sh \
+         ~/.claude/hooks/log-activity.sh \
+         ~/.claude/hooks/workflow-docs-server.sh \
+         ~/.claude/hooks/bootstrap-flows.sh
 
-cp workflow-doc-generator.md     ~/.claude/agents/workflow-doc-generator.md
+# Subagent
+cp workflow-doc-generator.md  ~/.claude/agents/workflow-doc-generator.md
 
-cp SKILL.md                      ~/.claude/skills/workflow-visualizer/SKILL.md
-cp template.html                 ~/.claude/skills/workflow-visualizer/template.html
-cp example-flows.json            ~/.claude/skills/workflow-visualizer/example-flows.json
+# Skill (renderer + schema + canonical prompt + example)
+cp SKILL.md                   ~/.claude/skills/workflow-visualizer/SKILL.md
+cp PROMPT.md                  ~/.claude/skills/workflow-visualizer/PROMPT.md
+cp template.html              ~/.claude/skills/workflow-visualizer/template.html
+cp example-flows.json         ~/.claude/skills/workflow-visualizer/example-flows.json
 ```
 
 That's the entirety of the file layout. Everything else (`workflow-docs/index.html`, `workflow-docs/flows.json`) is generated on first run.
@@ -97,28 +108,30 @@ Then open `~/.claude/settings.json` in your editor and **merge** these two entri
 {
   "hooks": {
     "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/open-workflow-docs.sh session-start"
-          }
-        ]
-      }
+      { "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/bootstrap-flows.sh session-start" }] },
+      { "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/open-workflow-docs.sh session-start" }] }
     ],
     "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/open-workflow-docs.sh user-prompt"
-          }
-        ]
-      }
+      { "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/open-workflow-docs.sh user-prompt" }] },
+      { "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/log-activity.sh user-prompt" }] }
+    ],
+    "PreToolUse": [
+      { "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/log-activity.sh pre-tool-use" }] }
+    ],
+    "PostToolUse": [
+      { "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/log-activity.sh post-tool-use" }] }
+    ],
+    "SubagentStart": [
+      { "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/log-activity.sh subagent-start" }] }
+    ],
+    "SubagentStop": [
+      { "hooks": [{ "type": "command", "command": "$HOME/.claude/hooks/log-activity.sh subagent-stop" }] }
     ]
   }
 }
 ```
+
+`SessionStart` runs in order — `bootstrap-flows.sh` first (architecture-summary injection + first-time bootstrap), then `open-workflow-docs.sh` (opens / refreshes the browser tab).
 
 If `"hooks"` already has `SessionStart` or `UserPromptSubmit` arrays, **append** the inner `{ "hooks": [...] }` object to the existing array rather than replacing it. Order doesn't matter.
 
