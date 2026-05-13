@@ -1,0 +1,1418 @@
+<!doctype html>
+<html lang="en" data-theme="shades-of-purple">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Architecture & Flows</title>
+<style>
+  /* ===== Theme tokens ===== */
+  [data-theme="shades-of-purple"] {
+    --bg-color-dark:   #1e1e3f;
+    --bg-color:        #2d2b55;
+    --border-color:    #3b2d6b;
+    --current-line:    #3b2d6b;
+    --comment-color:   #b362ff;
+    --cyan-color:      #9effff;
+    --blue-color:      #6943d8;
+    --green-color:     #a5ff90;
+    --dark-green-color:#2e5a1e;
+    --gray-color:      #9a95b8;
+    --purple-color:    #a599e9;
+    --yellow-color:    #fad000;
+    --orange-color:    #ff9d00;
+    --dark-orange-color:#ff7200;
+    --red-color:       #ff628c;
+    --dark-red-color:  #ec3a37;
+    --foreground-color:#a599e9;
+    --skeleton-shimmer:#4b3a8a;
+    --button-bg:       #1e1e3f;
+    --input-bg:        #1e1e3f;
+
+    --bg:            var(--bg-color);
+    --bg-elev:       var(--bg-color-dark);
+    --panel:         var(--bg-color-dark);
+    --panel-soft:    var(--current-line);
+    --card:          #262450;
+    --border:        var(--border-color);
+    --border-strong: var(--skeleton-shimmer);
+    --text:          #ecebff;
+    --text-muted:    var(--gray-color);
+    --text-dim:      #7a73a8;
+    --accent:        var(--yellow-color);
+    --accent-strong: var(--orange-color);
+    --accent-soft:   rgba(250, 208, 0, 0.13);
+    --live:          var(--green-color);
+    --live-soft:     rgba(165, 255, 144, 0.14);
+    --code-bg:       #15152f;
+  }
+  [data-theme="ayu-light"] {
+    --bg-color-dark:   #f0f0f0;
+    --bg-color:        #fafafa;
+    --border-color:    #e0e0e0;
+    --current-line:    #e8e8e8;
+    --comment-color:   #aaa;
+    --cyan-color:      #399ee6;
+    --blue-color:      #1b7dc4;
+    --green-color:     #318866;
+    --dark-green-color:#256b50;
+    --gray-color:      #666;
+    --purple-color:    #a37acc;
+    --yellow-color:    #ed9366;
+    --orange-color:    #ed9366;
+    --dark-orange-color:#d07a4e;
+    --red-color:       #f07171;
+    --dark-red-color:  #d45858;
+    --foreground-color:#575f66;
+    --input-bg:        #fff;
+
+    --bg:            var(--bg-color);
+    --bg-elev:       var(--bg-color-dark);
+    --panel:         #ffffff;
+    --panel-soft:    var(--current-line);
+    --card:          #ffffff;
+    --border:        var(--border-color);
+    --border-strong: #cbcbcb;
+    --text:          var(--foreground-color);
+    --text-muted:    var(--gray-color);
+    --text-dim:      var(--comment-color);
+    --accent:        var(--orange-color);
+    --accent-strong: var(--dark-orange-color);
+    --accent-soft:   rgba(237, 147, 102, 0.13);
+    --live:          var(--green-color);
+    --live-soft:     rgba(49, 136, 102, 0.13);
+    --code-bg:       #f5f5f5;
+  }
+
+  :root {
+    --mono: ui-monospace, "JetBrains Mono", "Fira Code", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+
+  /* Themed scrollbars */
+  * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 2px solid var(--bg);
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+  *::-webkit-scrollbar-thumb:active { background: var(--accent); }
+  *::-webkit-scrollbar-corner { background: transparent; }
+  .pane-body::-webkit-scrollbar-thumb,
+  aside.side ::-webkit-scrollbar-thumb { border-color: var(--panel); }
+
+  body {
+    font: 13px/1.45 var(--sans);
+    color: var(--text);
+    background: var(--bg);
+    display: grid;
+    grid-template-columns: 1fr var(--side-w, 26rem);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "header header"
+      "main   side";
+    height: 100vh;
+    overflow: hidden;
+    transition: background-color .25s, color .25s;
+  }
+  body.resizing { user-select: none; cursor: ew-resize; }
+  body.resizing-v { user-select: none; cursor: ns-resize; }
+
+  /* ===== Header ===== */
+  header.app-header {
+    grid-area: header;
+    padding: 22px 26px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .app-header .title { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+  .app-header .subtitle {
+    color: var(--text-muted); font-size: 13px; margin-top: 4px; max-width: 1100px;
+  }
+  .legend {
+    display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px;
+    font-size: 11.5px; color: var(--text-muted);
+  }
+  .legend .item { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  /* Bottom row of the header — legend on the left, toolbar (Reload + theme) on the right. */
+  .header-bottom {
+    display: flex; align-items: flex-end; gap: 16px;
+    margin-top: 12px;
+  }
+  .header-bottom .legend { margin-top: 0; flex: 1; }
+  .canvas-toolbar {
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  .canvas-toolbar button {
+    font: inherit; font-size: 12px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border-strong);
+    padding: 4px 12px; border-radius: 6px; cursor: pointer;
+    transition: background-color .15s, border-color .15s, color .15s;
+  }
+  .canvas-toolbar button:hover { background: var(--panel-soft); border-color: var(--accent); }
+  .last-loaded { color: var(--text-dim); font-size: 11px; }
+
+  /* ===== Theme toggle ===== */
+  .theme-toggle {
+    width: 38px; height: 22px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong) !important;
+    background: var(--panel) !important;
+    position: relative;
+    cursor: pointer;
+    padding: 0 !important;
+    transition: background-color .25s, border-color .25s;
+  }
+  .theme-toggle::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px -1px var(--accent);
+    transition: transform .35s cubic-bezier(.34,.61,.49,.99), background-color .25s;
+  }
+  [data-theme="ayu-light"] .theme-toggle::after {
+    transform: translateX(16px);
+  }
+  .theme-toggle .icon {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    font-size: 10px; line-height: 1; opacity: 0.55; pointer-events: none;
+    color: var(--text-muted);
+  }
+  .theme-toggle .icon.moon { left: 5px; }
+  .theme-toggle .icon.sun  { right: 5px; }
+
+  /* ===== Main canvas (swim lanes) ===== */
+  main {
+    grid-area: main;
+    position: relative;
+    overflow: auto;
+    padding: 18px 22px 22px;
+    background: var(--bg);
+  }
+  .lanes {
+    position: relative;
+    display: grid;
+    gap: 0;
+    align-items: start;
+    min-height: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-elev);
+    overflow: hidden;
+  }
+  .lane {
+    display: flex; flex-direction: column;
+    min-width: 0;
+    padding: 14px 16px 18px;
+    border-right: 1px solid var(--border);
+    background: transparent;
+  }
+  .lane:last-child { border-right: none; }
+  .lane-head {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    color: var(--text-dim);
+    padding: 0 0 10px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .lane-cards { display: flex; flex-direction: column; gap: 14px; align-items: stretch; }
+  .card {
+    position: relative;
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--text-dim);
+    border-radius: 7px;
+    padding: 10px 12px;
+    transition: opacity .15s, border-color .15s, background .15s, box-shadow .15s, color .25s;
+    cursor: default;
+    z-index: 2;
+  }
+  .card .name {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.25;
+    word-break: break-word;
+  }
+  .card .subtitle {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.35;
+  }
+  .card.dim { opacity: 0.2; }
+  .card.lit {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 22px -10px var(--accent);
+    background: var(--panel-soft);
+  }
+  .card.lit .name { color: var(--accent-strong); }
+
+  /* Live activity pulse (when an agent touches a card) */
+  @keyframes pulse-card {
+    0%   { box-shadow: 0 0 0 0 var(--live); }
+    60%  { box-shadow: 0 0 0 10px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .card.pulse { animation: pulse-card 1.4s ease-out 1; }
+
+  /* Live trail (no manual flow selected) */
+  .card.live-lit {
+    border-color: var(--live);
+    box-shadow: 0 0 0 1px var(--live), 0 0 22px -12px var(--live);
+    background: var(--panel-soft);
+  }
+  .card.live-lit .name { color: var(--live); }
+  .card.live-current {
+    border-color: var(--live);
+    box-shadow: 0 0 0 1px var(--live), 0 0 28px -6px var(--live);
+  }
+  .self-badge {
+    position: absolute; top: -8px; right: -8px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent); color: var(--bg);
+    font: 700 11px var(--mono);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 2px var(--bg);
+    z-index: 4;
+  }
+  .self-badge.live { background: var(--live); }
+  .self-badge + .self-badge { right: -32px; }
+
+  /* SVG arrow overlay */
+  svg.arrows {
+    position: absolute; left: 0; top: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 3;
+    overflow: visible;
+  }
+  .arrow-path { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+  .arrow-head { fill: var(--accent); }
+  .arrow-badge-bg { fill: var(--accent); stroke: var(--bg); stroke-width: 2; }
+  .arrow-badge-text { fill: var(--bg); font: 700 11px var(--mono); text-anchor: middle; dominant-baseline: central; }
+  .arrow-path.live { stroke: var(--live); stroke-dasharray: 5 3; }
+  .arrow-head.live { fill: var(--live); }
+  .arrow-badge-bg.live { fill: var(--live); }
+
+  /* ===== Right sidebar ===== */
+  aside.side {
+    grid-area: side;
+    position: relative;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: grid;
+    grid-template-rows: var(--pane-1-h, 35%) 5px var(--pane-2-h, 32%) 5px 1fr;
+    overflow: hidden;
+    min-width: 280px;
+    max-width: 480px;
+  }
+
+  /* Resize handles */
+  .side-resizer {
+    position: absolute;
+    left: -3px; top: 0; bottom: 0;
+    width: 7px; cursor: ew-resize;
+    z-index: 25;
+    background: transparent;
+    transition: background-color .15s;
+  }
+  .side-resizer:hover,
+  .side-resizer.dragging { background: var(--accent); opacity: 0.5; }
+
+  .pane-resizer {
+    position: relative;
+    cursor: ns-resize;
+    background: var(--border);
+    z-index: 5;
+    transition: background-color .15s;
+  }
+  .pane-resizer::after {
+    /* widen the hit area without changing the visual line */
+    content: ""; position: absolute;
+    left: 0; right: 0; top: -4px; bottom: -4px;
+  }
+  .pane-resizer:hover,
+  .pane-resizer.dragging { background: var(--accent); }
+  .pane {
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  .pane:last-child { border-bottom: none; }
+  .pane-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+  .pane-head .spacer { flex: 1; }
+  .pill {
+    text-transform: none; letter-spacing: normal;
+    font-size: 11px; color: var(--text-muted);
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .pane-body { overflow-y: auto; flex: 1; padding: 0 12px 12px; }
+
+  .search { padding: 0 18px 8px; }
+  .search input {
+    width: 100%;
+    font: inherit; font-size: 12.5px;
+    background: var(--input-bg, var(--panel-soft));
+    color: var(--text);
+    padding: 6px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    outline: none;
+  }
+  .search input::placeholder { color: var(--text-dim); }
+  .search input:focus { border-color: var(--accent); }
+
+  .flow-list { display: flex; flex-direction: column; gap: 2px; }
+  .flow-item {
+    position: relative;
+    padding: 10px 12px 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .flow-item:hover { background: var(--panel-soft); }
+  .flow-item.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .flow-item.active::before {
+    content: ""; position: absolute; left: 5px; top: 12px; bottom: 12px;
+    width: 3px; border-radius: 2px; background: var(--accent);
+  }
+  .flow-item .name { font-weight: 600; font-size: 13px; color: var(--text); }
+  .flow-item.active .name { color: var(--accent-strong); }
+  .flow-item .desc {
+    color: var(--text-muted); font-size: 12px; margin-top: 3px;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .flow-cat {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-dim); font-weight: 600;
+    padding: 12px 8px 4px;
+  }
+  .clear-btn {
+    margin: 8px 8px 2px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font: inherit; font-size: 11.5px;
+  }
+  .clear-btn:hover { background: var(--panel-soft); color: var(--text); }
+
+  /* Steps */
+  .steps-empty {
+    color: var(--text-dim); font-size: 12.5px;
+    padding: 22px 16px; text-align: center;
+  }
+  .steps { display: flex; flex-direction: column; gap: 8px; padding: 4px 6px 8px; }
+  .step {
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+  .step:hover { border-color: var(--border-strong); }
+  .step.active { border-color: var(--accent); background: var(--accent-soft); }
+  .step-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .step-num {
+    background: var(--accent); color: var(--bg);
+    width: 19px; height: 19px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font: 700 11px var(--mono);
+    flex-shrink: 0;
+  }
+  .step-route { color: var(--text-muted); font-size: 11.5px; }
+  .step-route .pkg { color: var(--text); font-family: var(--mono); font-size: 11.5px; }
+  .step-route .arrow { color: var(--text-dim); margin: 0 4px; }
+  .step-label { font-family: var(--mono); font-size: 12px; color: var(--accent-strong); margin: 6px 0 4px; font-weight: 600; }
+  .step-detail { color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+
+  /* Tabs (bottom pane) */
+  .tabs { display: inline-flex; gap: 4px; }
+  .tab {
+    font: inherit; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    background: transparent; color: var(--text-dim);
+    border: 1px solid transparent;
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .tab:hover { background: var(--panel-soft); color: var(--text-muted); }
+  .tab.active { background: var(--panel-soft); color: var(--accent-strong); border-color: var(--accent); }
+
+  .live-status { display: inline-flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: normal; font-size: 11px; color: var(--text-muted); }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); transition: background .2s, box-shadow .2s; }
+  .live-dot.on {
+    background: var(--live);
+    animation: live-pulse 1.6s ease-out infinite;
+  }
+  .live-dot.warn { background: var(--orange-color); }
+  @keyframes live-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(165, 255, 144, 0.45); }
+    70%  { box-shadow: 0 0 0 6px rgba(165, 255, 144, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(165, 255, 144, 0); }
+  }
+
+  /* Agents tab */
+  .agents-list { display: flex; flex-direction: column; gap: 8px; padding: 4px 4px 8px; }
+  .agents-empty { color: var(--text-dim); font-size: 12px; padding: 22px 14px; text-align: center; }
+  .agent {
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-dim);
+    border-radius: 8px;
+    padding: 9px 12px;
+  }
+  .agent.running { border-left-color: var(--live); }
+  .agent.idle    { border-left-color: var(--text-dim); }
+  .agent.done    { border-left-color: var(--text-muted); opacity: 0.78; }
+  .agent-head {
+    display: flex; align-items: baseline; gap: 8px;
+    min-width: 0;
+  }
+  .agent-name {
+    font: 600 12px var(--mono);
+    color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    min-width: 0; flex-shrink: 1;
+  }
+  .agent .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .agent.running .status-dot { background: var(--live); animation: live-pulse 1.6s ease-out infinite; }
+  .agent.idle    .status-dot { background: var(--text-dim); }
+  .agent.done    .status-dot { background: var(--text-muted); }
+  .agent-meta { color: var(--text-dim); font: 10.5px var(--mono); margin-left: auto; flex-shrink: 0; }
+  .agent-goal { color: var(--text); font-size: 12px; margin-top: 6px; font-style: italic;
+    overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  }
+  .agent-goal:empty { display: none; }
+  .agent-last { color: var(--text-muted); font: 11px var(--mono); margin-top: 6px;
+    overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .agent-last .tool {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    padding: 1px 5px; border-radius: 999px;
+    margin-right: 5px; color: var(--text-muted);
+    font-size: 10.5px;
+  }
+
+  /* Activity tab */
+  .activity-feed { padding: 4px 4px 8px; display: flex; flex-direction: column; gap: 4px; }
+  .activity-empty { color: var(--text-dim); font-size: 12px; padding: 18px 14px; text-align: center; }
+  .activity-row {
+    display: flex; flex-direction: column;
+    gap: 3px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: var(--panel-soft);
+    line-height: 1.35;
+    overflow: hidden;
+  }
+  .activity-row.new { border-color: var(--accent); }
+  .activity-row.spawn { border-color: var(--live); }
+  .activity-row .head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .activity-row .when { color: var(--text-dim); font: 10.5px var(--mono); flex-shrink: 0; }
+  .activity-row .who {
+    color: var(--accent-strong); font: 600 11px var(--mono);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    min-width: 0; flex-shrink: 1;
+  }
+  .activity-row .tool {
+    color: var(--text-muted); font: 600 10.5px var(--mono);
+    margin-left: auto;
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    flex-shrink: 0; white-space: nowrap;
+  }
+  .activity-row .target {
+    color: var(--text-muted); font: 11px var(--mono);
+    word-break: break-all;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .activity-row .target:empty { display: none; }
+
+  .error-banner {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--dark-red-color, #2c0f12); border: 1px solid var(--red-color, #7f1d1d);
+    color: #fecaca; padding: 8px 14px; border-radius: 6px; font-size: 13px; z-index: 100;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!--
+flows-data schema (edit JSON directly to add components/flows — no JS changes needed):
+{
+  "app":        { "name": "string", "description": "string" },
+  "categories": [{ "id": "kebab", "label": "string", "color": "#rrggbb" }],
+  "columns":    [{ "id": "kebab", "label": "STRING" }],
+  "components": [{ "id": "kebab", "name": "monospace name", "subtitle": "short caption", "column": "<columns.id>", "category": "<categories.id>", "paths": ["substring matched against tool targets"] }],
+  "flows":      [{ "id": "kebab", "name": "Human readable", "description": "one-line", "steps": [
+                  { "from": "<components.id>", "to": "<components.id>", "label": "imperative action", "detail": "what's passed" }
+                ]}]
+}
+-->
+<script type="application/json" id="flows-data">
+__FLOWS_JSON__
+</script>
+
+<header class="app-header">
+  <div class="title" id="app-title">Architecture & Flows</div>
+  <div class="subtitle" id="app-subtitle"></div>
+  <div class="header-bottom">
+    <div class="legend" id="legend"></div>
+    <div class="canvas-toolbar">
+      <span class="last-loaded" id="last-loaded"></span>
+      <button id="btn-reload" title="Reload flows.json (HTTP only)">Reload</button>
+      <button class="theme-toggle" id="btn-theme" title="Toggle dark / light" aria-label="Toggle theme">
+        <span class="icon moon" aria-hidden="true">☾</span>
+        <span class="icon sun" aria-hidden="true">☀</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="lanes" id="lanes"></div>
+  <svg class="arrows" id="arrows" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head" />
+      </marker>
+      <marker id="arrowhead-live" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head live" />
+      </marker>
+    </defs>
+  </svg>
+</main>
+
+<aside class="side" id="side">
+  <div class="side-resizer" id="side-resizer" title="Drag to resize sidebar"></div>
+  <section class="pane">
+    <div class="pane-head">
+      Flows
+      <span class="spacer"></span>
+      <span class="pill" id="flow-count">0</span>
+    </div>
+    <div class="search">
+      <input id="search" type="search" placeholder="Search flows..." autocomplete="off" />
+    </div>
+    <div class="pane-body">
+      <div class="flow-list" id="flow-list"></div>
+      <button class="clear-btn" id="btn-reset">Clear selection</button>
+    </div>
+  </section>
+  <div class="pane-resizer" data-resize="1" title="Drag to resize panes"></div>
+  <section class="pane">
+    <div class="pane-head">
+      Steps
+      <span class="spacer"></span>
+      <span class="pill" id="step-count" style="display:none">0</span>
+    </div>
+    <div class="pane-body" id="details">
+      <div class="steps-empty">Pick a flow on the right to see each step in order.</div>
+    </div>
+  </section>
+  <div class="pane-resizer" data-resize="2" title="Drag to resize panes"></div>
+  <section class="pane">
+    <div class="pane-head">
+      <div class="tabs">
+        <button class="tab active" id="tab-agents" data-tab="agents">Agents</button>
+        <button class="tab" id="tab-activity" data-tab="activity">Activity</button>
+      </div>
+      <span class="spacer"></span>
+      <span class="live-status">
+        <span class="live-dot" id="live-dot" title="Live activity status"></span>
+        <span id="live-label">offline</span>
+      </span>
+    </div>
+    <div class="pane-body">
+      <div id="panel-agents">
+        <div class="agents-empty">No agents yet. Once Claude Code starts running, agents and their goals will appear here.</div>
+      </div>
+      <div id="panel-activity" class="hidden">
+        <div class="activity-empty">Live activity requires the local HTTP server. Open <code>http://127.0.0.1:&lt;port&gt;/index.html</code> to see it.</div>
+      </div>
+    </div>
+  </section>
+</aside>
+
+<script>
+(() => {
+  // ===== State =====
+  let data = null;
+  let selectedFlowId = null;
+  let selectedStepIdx = null;
+  let activitySeen = 0;
+  let activityRows = [];
+  const ACTIVITY_MAX_ROWS = 100;
+  const TRAIL_MAX = 8;
+  let liveTrail = []; // [{compId, ts, tool, target}]
+  const agents = new Map(); // id -> { id, status, goal, lastTool, lastTarget, lastTs, toolCount, startedAt, endedAt }
+  let currentTab = 'agents';
+
+  const $ = (id) => document.getElementById(id);
+
+  init();
+
+  function init() {
+    initTheme();
+    $('btn-reload').addEventListener('click', () => loadRemote(true));
+    $('btn-reset').addEventListener('click', clearSelection);
+    $('search').addEventListener('input', renderFlowList);
+    $('btn-theme').addEventListener('click', toggleTheme);
+    document.querySelectorAll('.tab').forEach((b) => {
+      b.addEventListener('click', () => switchTab(b.dataset.tab));
+    });
+    setupResize();
+    window.addEventListener('resize', () => requestAnimationFrame(redrawArrows));
+
+    data = readInlineData();
+    if (!data) {
+      showError('No flows data found. Add JSON to <script id="flows-data"> or serve flows.json next to this file.');
+      data = emptyDoc();
+    }
+    data = normalize(data);
+    render();
+
+    if (location.protocol !== 'file:') {
+      loadRemote(false);
+      setInterval(() => loadRemote(false), 1000);
+      setLiveStatus('on', 'live');
+      pollActivity();
+      setInterval(pollActivity, 800);
+    } else {
+      setLiveStatus('off', 'offline (open via http://)');
+    }
+  }
+
+  // ===== Resize handles =====
+  function setupResize() {
+    // Restore saved sizes
+    const saved = JSON.parse(localStorage.getItem('workflow-docs-layout') || '{}');
+    if (saved.sideW)   document.documentElement.style.setProperty('--side-w',  saved.sideW + 'px');
+    if (saved.pane1H)  document.documentElement.style.setProperty('--pane-1-h', saved.pane1H + 'px');
+    if (saved.pane2H)  document.documentElement.style.setProperty('--pane-2-h', saved.pane2H + 'px');
+
+    const saveLayout = () => {
+      const html = document.documentElement.style;
+      const v = (k) => parseFloat(html.getPropertyValue(k));
+      localStorage.setItem('workflow-docs-layout', JSON.stringify({
+        sideW:  v('--side-w')  || null,
+        pane1H: v('--pane-1-h') || null,
+        pane2H: v('--pane-2-h') || null,
+      }));
+    };
+
+    // Horizontal sidebar resize
+    const sr = $('side-resizer');
+    if (sr) {
+      sr.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        sr.classList.add('dragging');
+        document.body.classList.add('resizing');
+        const startX = e.clientX;
+        const startW = $('side').getBoundingClientRect().width;
+        const onMove = (ev) => {
+          const dx = startX - ev.clientX;
+          let w = Math.max(280, Math.min(480, startW + dx));
+          document.documentElement.style.setProperty('--side-w', w + 'px');
+          requestAnimationFrame(redrawArrows);
+        };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          sr.classList.remove('dragging');
+          document.body.classList.remove('resizing');
+          saveLayout();
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    }
+
+    // Vertical pane resize (two handles: between pane 1/2 and pane 2/3)
+    document.querySelectorAll('.pane-resizer').forEach((handle) => {
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        handle.classList.add('dragging');
+        document.body.classList.add('resizing-v');
+        const which = handle.dataset.resize;
+        const panes = document.querySelectorAll('aside.side > .pane');
+        const aside = document.getElementById('side');
+        const asideTop = aside.getBoundingClientRect().top;
+        const startY = e.clientY;
+        const h1 = panes[0].getBoundingClientRect().height;
+        const h2 = panes[1].getBoundingClientRect().height;
+        const h3 = panes[2].getBoundingClientRect().height;
+        const onMove = (ev) => {
+          const dy = ev.clientY - startY;
+          if (which === '1') {
+            // Adjust pane 1 height; pane 2 absorbs the change so pane 3 (1fr) doesn't shift.
+            const newH1 = Math.max(80, Math.min(h1 + dy, h1 + h2 - 80));
+            const newH2 = h1 + h2 - newH1;
+            document.documentElement.style.setProperty('--pane-1-h', newH1 + 'px');
+            document.documentElement.style.setProperty('--pane-2-h', newH2 + 'px');
+          } else {
+            // Adjust pane 2 height; pane 3 (1fr) absorbs the change.
+            const newH2 = Math.max(80, Math.min(h2 + dy, h2 + h3 - 80));
+            document.documentElement.style.setProperty('--pane-2-h', newH2 + 'px');
+          }
+          requestAnimationFrame(redrawArrows);
+        };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          handle.classList.remove('dragging');
+          document.body.classList.remove('resizing-v');
+          saveLayout();
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  }
+
+  // ===== Theme =====
+  function initTheme() {
+    const saved = localStorage.getItem('workflow-docs-theme') || 'shades-of-purple';
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'ayu-light' ? 'shades-of-purple' : 'ayu-light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('workflow-docs-theme', next);
+    // Arrows are SVG with stroke="currentColor" tokens — redraw to pick up new var values.
+    requestAnimationFrame(redrawArrows);
+  }
+
+  // ===== Tabs =====
+  function switchTab(name) {
+    currentTab = name;
+    document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+    $('panel-agents').classList.toggle('hidden', name !== 'agents');
+    $('panel-activity').classList.toggle('hidden', name !== 'activity');
+  }
+
+  // ===== Data loading =====
+  function emptyDoc() {
+    return { app: { name: 'Workflow Docs' }, categories: [], columns: [], components: [], flows: [] };
+  }
+  function readInlineData() {
+    const node = $('flows-data');
+    if (!node) return null;
+    const raw = node.textContent.trim();
+    if (!raw || raw === '__FLOWS_JSON__') return null;
+    try { return JSON.parse(raw); } catch (e) { showError('Invalid JSON in <script id="flows-data">: ' + e.message); return null; }
+  }
+  async function loadRemote(force) {
+    try {
+      const res = await fetch('./flows.json?_=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) return;
+      const fresh = normalize(await res.json());
+      if (force || JSON.stringify(data) !== JSON.stringify(fresh)) {
+        data = fresh;
+        render();
+        $('last-loaded').textContent = 'loaded ' + new Date().toLocaleTimeString();
+      }
+    } catch (_) { /* fine */ }
+  }
+  function normalize(d) {
+    if (!d) return emptyDoc();
+    const out = {
+      app: d.app || { name: 'Workflow Docs' },
+      categories: Array.isArray(d.categories) ? d.categories.slice() : [],
+      columns: Array.isArray(d.columns) ? d.columns.map((c) => typeof c === 'string' ? { id: c, label: c } : c) : [],
+      components: [],
+      flows: [],
+    };
+    const palette = ['#c084fc','#22d3ee','#a78bfa','#fb923c','#34d399','#60a5fa','#9ca3af','#f472b6','#facc15'];
+    const sourceComps = Array.isArray(d.components) ? d.components : (Array.isArray(d.packages) ? d.packages : []);
+    for (const c of sourceComps) {
+      out.components.push({
+        id: c.id,
+        name: c.name || c.label || c.id,
+        subtitle: c.subtitle || c.caption || c.description || '',
+        column: c.column || c.group || 'default',
+        category: c.category || c.type || c.column || c.group || 'default',
+        paths: Array.isArray(c.paths) ? c.paths.slice() : [],
+      });
+    }
+    const seenCols = new Set(out.columns.map((c) => c.id));
+    for (const c of out.components) {
+      if (!seenCols.has(c.column)) {
+        seenCols.add(c.column);
+        out.columns.push({ id: c.column, label: c.column.toString().toUpperCase() });
+      }
+    }
+    const seenCats = new Set(out.categories.map((c) => c.id));
+    for (const c of out.components) {
+      if (!seenCats.has(c.category)) {
+        seenCats.add(c.category);
+        out.categories.push({
+          id: c.category,
+          label: c.category.toString().replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase()),
+          color: palette[out.categories.length % palette.length],
+        });
+      }
+    }
+    for (const f of (d.flows || [])) {
+      out.flows.push({
+        id: f.id,
+        name: f.name,
+        description: f.description || '',
+        category: f.category || '',
+        steps: (f.steps || []).map((s) => ({
+          from: s.from,
+          to: s.to,
+          label: s.label || s.title || s.annotation || '',
+          detail: s.detail || s.payload || (s.label || s.title ? s.annotation : '') || '',
+        })),
+      });
+    }
+    return out;
+  }
+
+  // ===== Render =====
+  function render() {
+    const appName = (data.app && data.app.name) || 'Workflow Docs';
+    document.title = appName + ' — Architecture & Flows';
+    $('app-title').textContent = appName + ' — Architecture & Flows';
+    $('app-subtitle').textContent = (data.app && data.app.description) || '';
+    $('flow-count').textContent = data.flows.length;
+    renderLegend();
+    renderLanes();
+    renderFlowList();
+    if (selectedFlowId) {
+      applySelection(selectedFlowId, selectedStepIdx);
+      renderDetails(selectedFlowId, selectedStepIdx);
+    } else {
+      requestAnimationFrame(() => applyLiveTrail());
+    }
+  }
+  function renderLegend() {
+    const root = $('legend'); root.innerHTML = '';
+    for (const c of data.categories) {
+      const wrap = document.createElement('div'); wrap.className = 'item';
+      const sw = document.createElement('span'); sw.className = 'swatch'; sw.style.background = c.color || '#9ca3af';
+      const lbl = document.createElement('span'); lbl.textContent = c.label || c.id;
+      wrap.appendChild(sw); wrap.appendChild(lbl);
+      root.appendChild(wrap);
+    }
+  }
+  function categoryColor(id) {
+    const c = data.categories.find((x) => x.id === id);
+    return (c && c.color) || '#9ca3af';
+  }
+  function renderLanes() {
+    const lanes = $('lanes'); lanes.innerHTML = '';
+    lanes.style.gridTemplateColumns = `repeat(${data.columns.length || 1}, minmax(180px, 1fr))`;
+    const byCol = new Map();
+    for (const c of data.components) {
+      if (!byCol.has(c.column)) byCol.set(c.column, []);
+      byCol.get(c.column).push(c);
+    }
+    for (const col of data.columns) {
+      const lane = document.createElement('div'); lane.className = 'lane';
+      const head = document.createElement('div'); head.className = 'lane-head'; head.textContent = col.label || col.id;
+      lane.appendChild(head);
+      const cards = document.createElement('div'); cards.className = 'lane-cards';
+      for (const comp of (byCol.get(col.id) || [])) {
+        const card = document.createElement('div'); card.className = 'card'; card.dataset.compId = comp.id;
+        card.style.borderLeftColor = categoryColor(comp.category);
+        const name = document.createElement('div'); name.className = 'name'; name.textContent = comp.name;
+        card.appendChild(name);
+        if (comp.subtitle) {
+          const sub = document.createElement('div'); sub.className = 'subtitle'; sub.textContent = comp.subtitle;
+          card.appendChild(sub);
+        }
+        cards.appendChild(card);
+      }
+      lane.appendChild(cards);
+      lanes.appendChild(lane);
+    }
+    requestAnimationFrame(() => { if (selectedFlowId) drawArrowsForFlow(selectedFlowId, selectedStepIdx); else applyLiveTrail(); });
+  }
+  function renderFlowList() {
+    const q = $('search').value.trim().toLowerCase();
+    const list = $('flow-list'); list.innerHTML = '';
+    const filtered = data.flows.filter((f) => !q || (f.name + ' ' + (f.description || '') + ' ' + (f.category || '')).toLowerCase().includes(q));
+    const byCat = new Map();
+    for (const f of filtered) {
+      const k = f.category || '';
+      if (!byCat.has(k)) byCat.set(k, []);
+      byCat.get(k).push(f);
+    }
+    for (const [cat, items] of byCat) {
+      if (cat) {
+        const h = document.createElement('div'); h.className = 'flow-cat'; h.textContent = cat;
+        list.appendChild(h);
+      }
+      for (const f of items) {
+        const node = document.createElement('div');
+        node.className = 'flow-item' + (f.id === selectedFlowId ? ' active' : '');
+        node.dataset.flowId = f.id;
+        const name = document.createElement('div'); name.className = 'name'; name.textContent = f.name;
+        const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = f.description || '';
+        node.appendChild(name); node.appendChild(desc);
+        node.addEventListener('click', () => f.id === selectedFlowId ? clearSelection() : selectFlow(f.id));
+        list.appendChild(node);
+      }
+    }
+    if (!filtered.length) {
+      const empty = document.createElement('div'); empty.className = 'flow-cat'; empty.textContent = 'No flows match';
+      list.appendChild(empty);
+    }
+  }
+
+  // ===== Selection =====
+  function selectFlow(flowId) {
+    selectedFlowId = flowId;
+    selectedStepIdx = null;
+    document.querySelectorAll('.flow-item').forEach((n) => n.classList.toggle('active', n.dataset.flowId === flowId));
+    applySelection(flowId, null);
+    renderDetails(flowId, null);
+  }
+  function selectStep(flowId, idx) {
+    selectedFlowId = flowId;
+    selectedStepIdx = idx;
+    applySelection(flowId, idx);
+    renderDetails(flowId, idx);
+  }
+  function clearSelection() {
+    selectedFlowId = null;
+    selectedStepIdx = null;
+    document.querySelectorAll('.flow-item').forEach((n) => n.classList.remove('active'));
+    document.querySelectorAll('.card').forEach((n) => n.classList.remove('dim', 'lit'));
+    $('details').innerHTML = '<div class="steps-empty">Pick a flow on the right to see each step in order.</div>';
+    $('step-count').style.display = 'none';
+    clearArrows();
+    applyLiveTrail();
+  }
+  function applySelection(flowId, stepIdx) {
+    const flow = data.flows.find((f) => f.id === flowId);
+    if (!flow) return;
+    const inPath = new Set();
+    for (const s of flow.steps) { inPath.add(s.from); inPath.add(s.to); }
+    document.querySelectorAll('.card').forEach((n) => {
+      n.classList.remove('dim', 'lit', 'live-lit', 'live-current');
+      const id = n.dataset.compId;
+      if (inPath.has(id)) n.classList.add('lit'); else n.classList.add('dim');
+    });
+    drawArrowsForFlow(flowId, stepIdx);
+  }
+
+  // ===== Arrows (flows) =====
+  function clearArrows() {
+    const svg = $('arrows');
+    [...svg.querySelectorAll(':scope > :not(defs)')].forEach((n) => n.remove());
+    document.querySelectorAll('.self-badge').forEach((el) => el.remove());
+  }
+  function redrawArrows() {
+    if (selectedFlowId) drawArrowsForFlow(selectedFlowId, selectedStepIdx);
+    else applyLiveTrail();
+  }
+  function cardRect(compId, lr) {
+    const card = document.querySelector('.card[data-comp-id="' + cssEscape(compId) + '"]');
+    if (!card) return null;
+    const r = card.getBoundingClientRect();
+    return {
+      el: card,
+      left: r.left - lr.left, right: r.right - lr.left,
+      top: r.top - lr.top, bottom: r.bottom - lr.top,
+      cx: (r.left + r.right) / 2 - lr.left,
+      cy: (r.top + r.bottom) / 2 - lr.top,
+      w: r.width, h: r.height,
+    };
+  }
+  function cssEscape(s) {
+    if (window.CSS && CSS.escape) return CSS.escape(s);
+    return String(s).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+  }
+  function drawArrowsForFlow(flowId, activeStepIdx) {
+    clearArrows();
+    const flow = data.flows.find((f) => f.id === flowId);
+    if (!flow) return;
+    const mainEl = $('main'), svg = $('arrows'), lanesEl = $('lanes');
+    const lr = lanesEl.getBoundingClientRect();
+    const mr = mainEl.getBoundingClientRect();
+    svg.setAttribute('width', lr.width);
+    svg.setAttribute('height', Math.max(lr.height, mr.height));
+    svg.style.left = (lr.left - mr.left + mainEl.scrollLeft) + 'px';
+    svg.style.top  = (lr.top  - mr.top  + mainEl.scrollTop)  + 'px';
+
+    const pairKey = (a, b) => a + '||' + b;
+    const stepKeys = new Set(flow.steps.map((s) => pairKey(s.from, s.to)));
+    const bidirectional = new Set();
+    for (const s of flow.steps) {
+      if (stepKeys.has(pairKey(s.to, s.from)) && s.from !== s.to) bidirectional.add(pairKey(s.from, s.to));
+    }
+    const seenPair = new Map();
+    flow.steps.forEach((step, i) => {
+      const isActive = activeStepIdx === i;
+      if (step.from === step.to) {
+        drawSelfBadge(step.from, i + 1, isActive, false);
+        return;
+      }
+      const k = pairKey(step.from, step.to);
+      const dup = seenPair.get(k) || 0;
+      seenPair.set(k, dup + 1);
+      drawArrow(step.from, step.to, i + 1, { flipCurve: bidirectional.has(k), parallelIndex: dup, active: isActive, live: false });
+    });
+  }
+
+  function drawSelfBadge(compId, num, active, live) {
+    const card = document.querySelector('.card[data-comp-id="' + cssEscape(compId) + '"]');
+    if (!card) return;
+    const b = document.createElement('div');
+    b.className = 'self-badge' + (live ? ' live' : '');
+    b.textContent = num;
+    if (active) b.style.boxShadow = '0 0 0 2px var(--bg), 0 0 0 4px ' + (live ? 'var(--live)' : 'var(--accent)');
+    card.appendChild(b);
+  }
+
+  function drawArrow(fromId, toId, num, opts) {
+    const lanesEl = $('lanes');
+    const lr = lanesEl.getBoundingClientRect();
+    const aC = cardRect(fromId, lr);
+    const bC = cardRect(toId, lr);
+    if (!aC || !bC) return;
+
+    let x1, y1, x2, y2;
+    const dx = bC.cx - aC.cx, dy = bC.cy - aC.cy;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      if (dx >= 0) { x1 = aC.right; y1 = aC.cy; x2 = bC.left;  y2 = bC.cy; }
+      else         { x1 = aC.left;  y1 = aC.cy; x2 = bC.right; y2 = bC.cy; }
+    } else {
+      if (dy >= 0) { x1 = aC.cx; y1 = aC.bottom; x2 = bC.cx; y2 = bC.top; }
+      else         { x1 = aC.cx; y1 = aC.top;    x2 = bC.cx; y2 = bC.bottom; }
+    }
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const px = -(y2 - y1), py = (x2 - x1);
+    const len = Math.hypot(px, py) || 1;
+    const base = Math.min(110, Math.hypot(x2 - x1, y2 - y1) * 0.35);
+    const dir = opts.flipCurve ? -1 : 1;
+    const parallel = (opts.parallelIndex || 0) * 22;
+    const curve = (base + parallel) * dir;
+    const c1x = mx + (px / len) * curve;
+    const c1y = my + (py / len) * curve;
+
+    const svg = $('arrows');
+    const ns = 'http://www.w3.org/2000/svg';
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', `M ${x1} ${y1} Q ${c1x} ${c1y} ${x2} ${y2}`);
+    path.setAttribute('class', 'arrow-path' + (opts.live ? ' live' : ''));
+    path.setAttribute('marker-end', 'url(#' + (opts.live ? 'arrowhead-live' : 'arrowhead') + ')');
+    if (opts.active) path.setAttribute('stroke-width', '2.6');
+    svg.appendChild(path);
+
+    const bx = 0.25 * x1 + 0.5 * c1x + 0.25 * x2;
+    const by = 0.25 * y1 + 0.5 * c1y + 0.25 * y2;
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('cx', bx); circle.setAttribute('cy', by); circle.setAttribute('r', 11);
+    circle.setAttribute('class', 'arrow-badge-bg' + (opts.live ? ' live' : ''));
+    svg.appendChild(circle);
+    const text = document.createElementNS(ns, 'text');
+    text.setAttribute('x', bx); text.setAttribute('y', by);
+    text.setAttribute('class', 'arrow-badge-text' + (opts.live ? ' live' : ''));
+    text.textContent = num;
+    svg.appendChild(text);
+  }
+
+  // ===== Live trail (board-side viz of agent activity) =====
+  function applyLiveTrail() {
+    if (selectedFlowId) return; // manual flow wins
+    clearArrows();
+    document.querySelectorAll('.card').forEach((n) => n.classList.remove('dim', 'lit', 'live-lit', 'live-current'));
+    if (!liveTrail.length) return;
+    // Collapse consecutive duplicates (same component touched twice in a row).
+    const compact = [];
+    for (const h of liveTrail) {
+      if (!compact.length || compact[compact.length - 1].compId !== h.compId) compact.push(h);
+    }
+    const inPath = new Set(compact.map((h) => h.compId));
+    document.querySelectorAll('.card').forEach((n) => {
+      n.classList.remove('dim', 'lit', 'live-lit', 'live-current');
+      if (inPath.has(n.dataset.compId)) n.classList.add('live-lit'); else n.classList.add('dim');
+    });
+    // Mark the most-recent one as "current".
+    const lastId = compact[compact.length - 1].compId;
+    const lastCard = document.querySelector('.card[data-comp-id="' + cssEscape(lastId) + '"]');
+    if (lastCard) lastCard.classList.add('live-current');
+    // Position SVG.
+    const mainEl = $('main'), svg = $('arrows'), lanesEl = $('lanes');
+    const lr = lanesEl.getBoundingClientRect();
+    const mr = mainEl.getBoundingClientRect();
+    svg.setAttribute('width', lr.width);
+    svg.setAttribute('height', Math.max(lr.height, mr.height));
+    svg.style.left = (lr.left - mr.left + mainEl.scrollLeft) + 'px';
+    svg.style.top  = (lr.top  - mr.top  + mainEl.scrollTop)  + 'px';
+    for (let i = 1; i < compact.length; i++) {
+      const from = compact[i - 1].compId, to = compact[i].compId;
+      if (from === to) { drawSelfBadge(from, i, false, true); continue; }
+      drawArrow(from, to, i, { flipCurve: false, parallelIndex: 0, active: false, live: true });
+    }
+  }
+
+  // ===== Steps render =====
+  function renderDetails(flowId, activeStepIdx) {
+    const flow = data.flows.find((f) => f.id === flowId);
+    if (!flow) return;
+    const compsById = new Map(data.components.map((c) => [c.id, c]));
+    const root = $('details');
+    $('step-count').textContent = flow.steps.length;
+    $('step-count').style.display = 'inline-block';
+    const stepsHtml = flow.steps.map((s, i) => {
+      const from = compsById.get(s.from), to = compsById.get(s.to);
+      const isActive = i === activeStepIdx;
+      const label = s.label ? `<div class="step-label">${escapeHtml(s.label)}</div>` : '';
+      const detail = s.detail ? `<div class="step-detail">${escapeHtml(s.detail)}</div>` : '';
+      return `
+        <div class="step ${isActive ? 'active' : ''}" data-step-idx="${i}">
+          <div class="step-head">
+            <span class="step-num">${i + 1}</span>
+            <div class="step-route">
+              <span class="pkg">${escapeHtml(from?.name || s.from)}</span>
+              <span class="arrow">→</span>
+              <span class="pkg">${escapeHtml(to?.name || s.to)}</span>
+            </div>
+          </div>
+          ${label}${detail}
+        </div>`;
+    }).join('');
+    root.innerHTML = `<div class="steps">${stepsHtml}</div>`;
+    root.querySelectorAll('.step').forEach((n) => {
+      n.addEventListener('click', () => selectStep(flowId, parseInt(n.dataset.stepIdx, 10)));
+    });
+  }
+
+  // ===== Live activity polling =====
+  function setLiveStatus(state, label) {
+    const dot = $('live-dot');
+    dot.className = 'live-dot ' + (state === 'on' ? 'on' : state === 'warn' ? 'warn' : '');
+    $('live-label').textContent = label;
+  }
+
+  async function pollActivity() {
+    try {
+      const res = await fetch('./activity.jsonl?_=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) {
+        if (res.status !== 404) setLiveStatus('warn', 'http ' + res.status);
+        return;
+      }
+      const text = await res.text();
+      if (text.length === activitySeen) return;
+      const slice = text.length < activitySeen ? text : text.slice(activitySeen);
+      activitySeen = text.length;
+      const lines = slice.split('\n').filter(Boolean);
+      for (const line of lines) {
+        try { ingestActivityEvent(JSON.parse(line)); } catch (_) {}
+      }
+      if (currentTab === 'activity') renderActivity();
+      renderAgents();
+      if (!selectedFlowId) requestAnimationFrame(applyLiveTrail);
+      setLiveStatus('on', 'live · ' + agents.size + ' agents');
+    } catch (_) {
+      setLiveStatus('warn', 'offline');
+    }
+  }
+
+  function ingestActivityEvent(ev) {
+    activityRows.push(ev);
+    if (activityRows.length > ACTIVITY_MAX_ROWS) activityRows.splice(0, activityRows.length - ACTIVITY_MAX_ROWS);
+    updateAgent(ev);
+    // Match against component paths → pulse + push to trail.
+    const hit = findMatchingComponent(ev);
+    if (hit) {
+      pulseCard(hit);
+      liveTrail.push({ compId: hit, ts: ev.ts, tool: ev.tool || '', target: ev.target || '' });
+      if (liveTrail.length > TRAIL_MAX) liveTrail.splice(0, liveTrail.length - TRAIL_MAX);
+    }
+  }
+
+  function updateAgent(ev) {
+    const id = ev.agent || 'main';
+    let a = agents.get(id);
+    if (!a) {
+      a = { id, name: id, status: 'idle', goal: '', lastTool: '', lastTarget: '', lastTs: '', toolCount: 0, startedAt: '', endedAt: '', spawnedBy: '' };
+      agents.set(id, a);
+    }
+    a.lastTs = ev.ts || a.lastTs;
+    if (ev.event === 'user-prompt' && id === 'main') {
+      a.goal = ev.goal || ev.target || a.goal;
+      a.status = 'running';
+      if (!a.startedAt) a.startedAt = ev.ts;
+    } else if (ev.event === 'spawn') {
+      a.goal = ev.goal || a.goal;
+      a.spawnedBy = ev.spawned_by || a.spawnedBy;
+      a.startedAt = a.startedAt || ev.ts;
+      a.status = 'idle'; // running once we see its first tool event
+    } else if (ev.event === 'subagent-start') {
+      a.status = 'running';
+      a.startedAt = a.startedAt || ev.ts;
+    } else if (ev.event === 'subagent-stop') {
+      a.status = 'done';
+      a.endedAt = ev.ts;
+    } else if (ev.event === 'pre-tool-use' || ev.event === 'post-tool-use') {
+      a.status = 'running';
+      if (ev.tool) a.lastTool = ev.tool;
+      if (ev.target) a.lastTarget = ev.target;
+      if (ev.event === 'pre-tool-use') a.toolCount += 1;
+    }
+  }
+
+  function findMatchingComponent(ev) {
+    if (!data || !data.components || !ev.target) return null;
+    const t = String(ev.target);
+    let best = null, bestLen = 0;
+    for (const c of data.components) {
+      for (const p of (c.paths || [])) {
+        if (!p) continue;
+        if (t.indexOf(p) !== -1 && p.length > bestLen) { best = c.id; bestLen = p.length; }
+      }
+    }
+    return best;
+  }
+
+  function pulseCard(compId) {
+    const card = document.querySelector('.card[data-comp-id="' + cssEscape(compId) + '"]');
+    if (!card) return;
+    card.classList.remove('pulse');
+    void card.offsetWidth;
+    card.classList.add('pulse');
+  }
+
+  function renderAgents() {
+    const root = $('panel-agents');
+    if (!agents.size) {
+      root.innerHTML = '<div class="agents-empty">No agents yet. Once Claude Code starts running, agents and their goals will appear here.</div>';
+      return;
+    }
+    const now = Date.now();
+    const list = [...agents.values()].sort((a, b) => (b.lastTs || '').localeCompare(a.lastTs || ''));
+    // Mark idle if not heard from in 20s.
+    for (const a of list) {
+      if (a.status !== 'done' && a.lastTs) {
+        const ago = now - new Date(a.lastTs).getTime();
+        if (isFinite(ago) && ago > 20000) a.status = 'idle';
+      }
+    }
+    root.innerHTML = '<div class="agents-list">' + list.map((a) => {
+      const lastToolHtml = a.lastTool ? `<span class="tool">${escapeHtml(a.lastTool)}</span>` : '';
+      const lastTargetHtml = a.lastTarget ? escapeHtml(a.lastTarget) : '';
+      const since = a.startedAt ? formatAgo(now - new Date(a.startedAt).getTime()) : '';
+      return `<div class="agent ${a.status}">
+        <div class="agent-head">
+          <span class="status-dot"></span>
+          <span class="agent-name">${escapeHtml(a.name)}</span>
+          <span class="agent-meta">${a.toolCount} tools${since ? ' · ' + since : ''}</span>
+        </div>
+        ${a.goal ? `<div class="agent-goal">${escapeHtml(a.goal)}</div>` : ''}
+        ${(lastToolHtml || lastTargetHtml) ? `<div class="agent-last">${lastToolHtml}${lastTargetHtml}</div>` : ''}
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  function formatAgo(ms) {
+    if (!isFinite(ms) || ms < 0) return '';
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return s + 's';
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + 'm';
+    const h = Math.floor(m / 60);
+    return h + 'h';
+  }
+
+  function renderActivity() {
+    const root = $('panel-activity');
+    if (!activityRows.length) {
+      root.innerHTML = '<div class="activity-empty">No agent activity yet — run a tool and it will appear here.</div>';
+      return;
+    }
+    const rows = activityRows.slice(-ACTIVITY_MAX_ROWS).reverse().map((ev, i) => {
+      const when = formatTime(ev.ts);
+      const who  = escapeHtml(ev.agent || 'main');
+      const tool = escapeHtml(ev.tool || ev.event || '');
+      const tgt  = escapeHtml(ev.target || '');
+      const isNew = i === 0;
+      const isSpawn = ev.event === 'spawn';
+      return '<div class="activity-row' + (isNew ? ' new' : '') + (isSpawn ? ' spawn' : '') + '">'
+        +    '<div class="head">'
+        +      '<span class="when">' + when + '</span>'
+        +      '<span class="who">' + who + '</span>'
+        +      (tool ? '<span class="tool">' + tool + '</span>' : '')
+        +    '</div>'
+        +    (tgt ? '<div class="target">' + tgt + '</div>' : '')
+        +  '</div>';
+    }).join('');
+    root.innerHTML = '<div class="activity-feed">' + rows + '</div>';
+  }
+
+  function formatTime(ts) {
+    if (!ts) return '';
+    try {
+      const d = new Date(ts);
+      return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
+    } catch (_) { return ''; }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+  function showError(msg) {
+    clearError();
+    const b = document.createElement('div');
+    b.className = 'error-banner'; b.id = 'err-banner'; b.textContent = msg;
+    document.body.appendChild(b);
+  }
+  function clearError() { const b = $('err-banner'); if (b) b.remove(); }
+})();
+</script>
+</body>
+</html>

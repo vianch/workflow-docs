@@ -1,0 +1,137 @@
+{
+  "app": {
+    "name": "ToDesktop",
+    "description": "Every package and external service that powers ToDesktop Builder and ToDesktop for Electron. Pick a flow on the right to highlight the path through the system and see what gets passed at each step."
+  },
+  "categories": [
+    { "id": "actor",            "label": "Actor",                     "color": "#f472b6" },
+    { "id": "client",           "label": "Client surface",            "color": "#22d3ee" },
+    { "id": "firebase-fn",      "label": "Firebase Function codebase","color": "#a78bfa" },
+    { "id": "firebase-data",    "label": "Firebase data",             "color": "#fb923c" },
+    { "id": "pipeline",         "label": "Build pipeline",            "color": "#34d399" },
+    { "id": "distribution",     "label": "Distribution / Workers",    "color": "#60a5fa" },
+    { "id": "external",         "label": "External service",          "color": "#9ca3af" }
+  ],
+  "columns": [
+    { "id": "actors",     "label": "ACTORS" },
+    { "id": "client",     "label": "CLIENT SURFACES" },
+    { "id": "auth-fns",   "label": "AUTH + FIREBASE FUNCTIONS" },
+    { "id": "storage",    "label": "STORAGE / DATA" },
+    { "id": "pipeline",   "label": "BUILD PIPELINE" },
+    { "id": "dist",       "label": "DISTRIBUTION" },
+    { "id": "external",   "label": "EXTERNAL SERVICES" }
+  ],
+  "components": [
+    { "id": "end-user",         "name": "End user",          "subtitle": "installed app / browser",    "column": "actors",   "category": "actor" },
+    { "id": "electron-repo",    "name": "User Electron repo","subtitle": "@todesktop/runtime",         "column": "actors",   "category": "actor" },
+    { "id": "builder-app",      "name": "Builder app",       "subtitle": "Svelte Electron UI",         "column": "actors",   "category": "actor" },
+    { "id": "admin-browser",    "name": "Admin browser",     "subtitle": "app.todesktop.com",          "column": "actors",   "category": "actor" },
+    { "id": "invitee-browser",  "name": "Invitee browser",   "subtitle": "inbound from email",         "column": "actors",   "category": "actor" },
+
+    { "id": "cli",              "name": "@todesktop/cli",    "subtitle": "todesktop build / release",  "column": "client",   "category": "client", "paths": ["packages/cli/", "todesktop.json", "todesktop build", "todesktop release"] },
+    { "id": "builder-template", "name": "Builder template",  "subtitle": "desktop-app/desktop-...",    "column": "client",   "category": "client", "paths": ["desktop-app/", "desktop-app/desktopify"] },
+    { "id": "web-app",          "name": "web-app frontend",  "subtitle": "React + Pulsate dashboard",  "column": "client",   "category": "client", "paths": ["packages/web-app/", "InviteUserForm"] },
+    { "id": "website",          "name": "website-combined",  "subtitle": "todesktop.com (Astro)",      "column": "client",   "category": "client", "paths": ["packages/website-combined/", "todesktop.com"] },
+
+    { "id": "fb-auth",          "name": "Firebase Auth",     "subtitle": "Google / GitHub / pw / OIDC","column": "auth-fns", "category": "firebase-fn" },
+    { "id": "fn-auth",          "name": "functions/auth",    "subtitle": "auth triggers",              "column": "auth-fns", "category": "firebase-fn" },
+    { "id": "fn-builds",        "name": "functions/builds",  "subtitle": "15 fns · prepare/kickOff/release", "column": "auth-fns", "category": "firebase-fn" },
+    { "id": "fn-billing",       "name": "functions/billing", "subtitle": "Stripe webhook · checkout",  "column": "auth-fns", "category": "firebase-fn" },
+    { "id": "fn-infra",         "name": "functions/infrastructure", "subtitle": "16 fns · certs · domains", "column": "auth-fns", "category": "firebase-fn" },
+    { "id": "fn-api",           "name": "functions/api",     "subtitle": "17 fns · signed URLs · uploads", "column": "auth-fns", "category": "firebase-fn" },
+    { "id": "fn-analysis",      "name": "functions/analysis","subtitle": "2 fns · static + deps",      "column": "auth-fns", "category": "firebase-fn" },
+
+    { "id": "firestore",        "name": "Firestore",         "subtitle": "users · apps · builds · invites", "column": "storage", "category": "firebase-data" },
+    { "id": "fb-storage",       "name": "Firebase Storage",  "subtitle": "build artifacts (legacy)",   "column": "storage",  "category": "firebase-data" },
+    { "id": "aws-s3",           "name": "AWS S3",            "subtitle": "source · artifacts · desktopify",  "column": "storage", "category": "firebase-data" },
+    { "id": "cf-r2",            "name": "Cloudflare R2",     "subtitle": "edge origin for downloads",  "column": "storage",  "category": "firebase-data" },
+
+    { "id": "azure-pipelines",  "name": "Azure Pipelines",   "subtitle": "DevOps API · Mac/Win/Linux", "column": "pipeline", "category": "pipeline" },
+    { "id": "desktopify-runner","name": "desktopify-runner", "subtitle": "Azure agent bootstrap",      "column": "pipeline", "category": "pipeline" },
+    { "id": "desktopify-svc",   "name": "@todesktop/desktopify", "subtitle": "build server · app-builder-lib", "column": "pipeline", "category": "pipeline" },
+
+    { "id": "monorepo-cdn",     "name": "monorepo · cdn workers", "subtitle": "CDN / download UI",   "column": "dist",     "category": "distribution" },
+    { "id": "monorepo-api",     "name": "monorepo · api worker",  "subtitle": "REST + worker-lib", "column": "dist", "category": "distribution" },
+    { "id": "cf-api",           "name": "Cloudflare API",    "subtitle": "custom_hostnames · DoH · purge","column": "dist", "category": "distribution" },
+
+    { "id": "azure-keyvault",   "name": "Azure Key Vault",   "subtitle": "signing certs · secrets",    "column": "external", "category": "external" },
+    { "id": "apple-notarize",   "name": "Apple notarization","subtitle": "altool · stapler",           "column": "external", "category": "external" },
+    { "id": "win-signing",      "name": "Windows code-signing CA", "subtitle": "EV / OV cert authority", "column": "external", "category": "external" },
+    { "id": "postmark",         "name": "Postmark",          "subtitle": "transactional email",        "column": "external", "category": "external" },
+    { "id": "stripe-api",       "name": "Stripe API",        "subtitle": "checkout · subs · invoices", "column": "external", "category": "external" },
+    { "id": "npm",              "name": "npm registry",      "subtitle": "@todesktop/cli, runtime, shared","column": "external", "category": "external" }
+  ],
+  "flows": [
+    {
+      "id": "todesktop-build",
+      "name": "todesktop build (Electron CLI)",
+      "description": "Developer runs `todesktop build` in their Electron repo",
+      "steps": [
+        { "from": "electron-repo",    "to": "cli",              "label": "invoke CLI",                   "detail": "Developer runs `todesktop build`. Reads todesktop.json, validates against packages/cli/schemas/schema.json." },
+        { "from": "cli",              "to": "fb-auth",          "label": "getIdToken()",                 "detail": "packages/cli/src/utilities/firestore.ts exchanges cached Firebase Auth credentials for an idToken to attach to all Function calls." },
+        { "from": "cli",              "to": "fn-builds",        "label": "prepareNewBuild()",            "detail": "Payload: {appId, appVersion, projectConfig, shouldCodeSign, versionControlInfo, breakpoints}. Returns buildId + signed upload URL." },
+        { "from": "fn-builds",        "to": "firestore",        "label": "create build doc",             "detail": "users/{uid}/apps/{appId}/builds/{buildId} — status=preparing, snapshots the project config." },
+        { "from": "cli",              "to": "aws-s3",           "label": "PUT source.tar.gz",            "detail": "Signed URL upload of source tarball to s3://todesktop-source/{buildId}/source.tar.gz." },
+        { "from": "cli",              "to": "fn-builds",        "label": "kickOffBuild(buildId)",        "detail": "Marks the build doc ready and triggers the Azure Pipelines run." },
+        { "from": "fn-builds",        "to": "azure-pipelines",  "label": "POST /pipelines/run",          "detail": "DevOps REST API call with build parameters (platform matrix, signing flags)." },
+        { "from": "azure-pipelines",  "to": "desktopify-runner","label": "spawn agent",                  "detail": "Mac/Win/Linux agents start, install Node + @todesktop/desktopify." },
+        { "from": "desktopify-runner","to": "aws-s3",           "label": "fetch source",                 "detail": "Pulls source.tar.gz, extracts to the agent's workspace." },
+        { "from": "desktopify-runner","to": "desktopify-svc",   "label": "build(appConfig)",             "detail": "Runs app-builder-lib targeting each platform. Produces .app / .exe / .AppImage artifacts." },
+        { "from": "desktopify-svc",   "to": "azure-keyvault",   "label": "fetch signing cert",           "detail": "Pulls the customer's EV cert + Apple Developer ID from Key Vault." },
+        { "from": "desktopify-svc",   "to": "apple-notarize",   "label": "notarize macOS build",         "detail": "altool submission, polls until Apple returns the stapled ticket." },
+        { "from": "desktopify-svc",   "to": "win-signing",      "label": "sign Windows build",           "detail": "Signs the .exe using the customer's EV / OV certificate." },
+        { "from": "desktopify-svc",   "to": "aws-s3",           "label": "upload artifacts",             "detail": "Writes signed installers + auto-update manifest to s3://todesktop-artifacts/{buildId}/." },
+        { "from": "desktopify-svc",   "to": "fn-builds",        "label": "reportBuildStatus()",          "detail": "Callbacks the Function with success/failure + artifact URLs." },
+        { "from": "fn-builds",        "to": "firestore",        "label": "update build doc",             "detail": "status=succeeded, artifactUrls, durationMs, logs. UI subscribes and reflects in realtime." },
+        { "from": "fn-builds",        "to": "cf-r2",            "label": "mirror to edge",               "detail": "Copies the auto-update channel manifest to R2 so downloads hit the CDN." }
+      ]
+    },
+    {
+      "id": "todesktop-release",
+      "name": "todesktop release (publish as latest)",
+      "description": "Developer marks a successful build as the new \"latest\" for end users",
+      "steps": [
+        { "from": "electron-repo", "to": "cli",          "label": "invoke CLI",            "detail": "Developer runs `todesktop release --buildId=<id>`." },
+        { "from": "cli",           "to": "fn-builds",    "label": "publishRelease()",      "detail": "Validates the buildId belongs to this app and is in status=succeeded." },
+        { "from": "fn-builds",     "to": "firestore",    "label": "update release pointer","detail": "users/{uid}/apps/{appId}.latestReleaseId = buildId. Bumps releasedAt." },
+        { "from": "fn-builds",     "to": "cf-r2",        "label": "rewrite manifest",      "detail": "Writes /apps/{appId}/latest/{platform}.yml so installed clients see the new version." },
+        { "from": "fn-builds",     "to": "monorepo-cdn", "label": "purge CDN cache",       "detail": "Invalidates download URLs so the next end-user check picks up the new release immediately." }
+      ]
+    },
+    {
+      "id": "auto-update-check",
+      "name": "Installed app auto-update check",
+      "description": "End user launches an installed ToDesktop app",
+      "steps": [
+        { "from": "end-user",     "to": "monorepo-cdn", "label": "GET /apps/{id}/latest/{platform}.yml", "detail": "Electron-updater fetches the manifest from the R2-backed CDN at startup and every 10 minutes." },
+        { "from": "monorepo-cdn", "to": "cf-r2",        "label": "edge origin pull",     "detail": "Cache miss falls through to R2 origin." },
+        { "from": "end-user",     "to": "monorepo-cdn", "label": "GET installer.zip",    "detail": "If the manifest version > installed version, the runtime downloads the platform installer." },
+        { "from": "end-user",     "to": "end-user",     "label": "apply update on restart", "detail": "Squirrel/.app bundle update applied next launch. Telemetry pinged to functions/analysis." }
+      ]
+    },
+    {
+      "id": "invite-new-user",
+      "name": "Invite a new user to an organization",
+      "description": "Org admin opens InviteUserForm in the dashboard",
+      "steps": [
+        { "from": "admin-browser",  "to": "web-app",   "label": "submit invite form",       "detail": "InviteUserForm.tsx posts { email, role } to the createInvite cloud function." },
+        { "from": "web-app",        "to": "fn-auth",   "label": "createInvite(email,role)", "detail": "HTTPS callable function, authenticated via the admin's Firebase Auth idToken." },
+        { "from": "fn-auth",        "to": "firestore", "label": "write invite doc",         "detail": "invites/{token} — { orgId, email, role, createdBy, expiresAt }. Used by /accept-invite." },
+        { "from": "fn-auth",        "to": "postmark",  "label": "send email",               "detail": "Postmark template 'org-invite' with one-time accept URL containing the token." },
+        { "from": "invitee-browser","to": "web-app",   "label": "open accept URL",          "detail": "Invitee opens https://app.todesktop.com/accept-invite?token=…" },
+        { "from": "web-app",        "to": "fn-auth",   "label": "acceptInvite(token)",      "detail": "Verifies token, attaches user to org with the stored role, deletes the invite doc." }
+      ]
+    },
+    {
+      "id": "stripe-webhook",
+      "name": "Stripe billing webhook",
+      "description": "Stripe POSTs a subscription.* event to the billing webhook",
+      "steps": [
+        { "from": "stripe-api", "to": "fn-billing",  "label": "POST /stripeWebhook",   "detail": "subscription.created | subscription.updated | invoice.paid. Verified with Stripe-Signature header." },
+        { "from": "fn-billing", "to": "stripe-api",  "label": "retrieve customer",     "detail": "Fetches the customer record to map metadata.uid back to a Firebase user." },
+        { "from": "fn-billing", "to": "firestore",   "label": "update subscription",   "detail": "users/{uid}.subscription — plan, status, currentPeriodEnd, seatCount." },
+        { "from": "fn-billing", "to": "fn-infra",    "label": "syncEntitlements()",    "detail": "If plan changed tier, kicks off custom-domain re-provisioning where applicable." }
+      ]
+    }
+  ]
+}
