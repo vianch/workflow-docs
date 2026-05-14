@@ -551,6 +551,66 @@
   }
   .activity-row.new { border-color: var(--accent); }
   .activity-row.spawn { border-color: var(--live); }
+
+  /* Risk-level highlighting — matches the gold "active step" palette */
+  .activity-row.risk-high {
+    border-left: 3px solid var(--accent);
+    background: rgba(250, 208, 0, 0.07);
+  }
+  .activity-row.risk-high .who { color: var(--accent-strong); }
+  .activity-row.risk-high .tool { border-color: var(--accent); color: var(--accent); }
+  .activity-row.risk-medium {
+    border-left: 3px solid var(--orange-color, #ff9d00);
+    background: rgba(255, 157, 0, 0.05);
+  }
+  .activity-row.risk-medium .tool { border-color: var(--orange-color, #ff9d00); color: var(--orange-color, #ff9d00); }
+
+  /* Attention filter bar inside the Activity panel */
+  .attention-filter-bar {
+    display: flex; gap: 6px; align-items: center;
+    padding: 8px 8px 10px;
+    position: sticky; top: 0;
+    background: var(--panel);
+    z-index: 2;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .attention-chip {
+    font: 600 10.5px var(--mono);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    background: var(--panel-soft); color: var(--text-dim);
+    border: 1px solid var(--border-strong);
+    padding: 3px 10px; border-radius: 999px;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .attention-chip:hover { color: var(--text-muted); }
+  .attention-chip.active {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    border-color: var(--accent);
+  }
+  .attention-chip .chip-count {
+    display: inline-block;
+    background: var(--accent); color: var(--bg);
+    font: 700 9px var(--mono);
+    padding: 0 5px; border-radius: 999px;
+    margin-left: 4px;
+    min-width: 14px; text-align: center;
+  }
+  .attention-chip .chip-count:empty { display: none; }
+
+  /* Badge on the Activity tab */
+  .tab .tab-badge {
+    display: inline-block;
+    background: var(--accent); color: var(--bg);
+    font: 700 9px var(--mono);
+    padding: 1px 5px; border-radius: 999px;
+    margin-left: 5px;
+    vertical-align: middle;
+    animation: pulse-card 2s ease-out infinite;
+  }
+  .tab .tab-badge:empty { display: none; }
   .activity-row .head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
   .activity-row .when { color: var(--text-dim); font: 10.5px var(--mono); flex-shrink: 0; }
   .activity-row .who {
@@ -855,7 +915,10 @@ __FLOWS_JSON__
     <div class="pane-head">
       <div class="tabs">
         <button class="tab active" id="tab-agents" data-tab="agents">Agents</button>
-        <button class="tab" id="tab-activity" data-tab="activity">Activity</button>
+        <button class="tab" id="tab-activity" data-tab="activity">
+          Activity
+          <span class="tab-badge" id="activity-badge"></span>
+        </button>
       </div>
       <span class="spacer"></span>
       <span class="live-status">
@@ -868,7 +931,16 @@ __FLOWS_JSON__
         <div class="agents-empty">No agents yet. Once Claude Code starts running, agents and their goals will appear here.</div>
       </div>
       <div id="panel-activity" class="hidden">
-        <div class="activity-empty">Live activity requires the local HTTP server. Open <code>http://127.0.0.1:&lt;port&gt;/index.html</code> to see it.</div>
+        <div class="attention-filter-bar">
+          <button class="attention-chip active" data-filter="all">All</button>
+          <button class="attention-chip" data-filter="attention">
+            ⚠ Attention
+            <span class="chip-count" id="attention-chip-count"></span>
+          </button>
+        </div>
+        <div id="activity-feed-root">
+          <div class="activity-empty">Live activity requires the local HTTP server. Open <code>http://127.0.0.1:&lt;port&gt;/index.html</code> to see it.</div>
+        </div>
       </div>
     </div>
   </section>
@@ -887,6 +959,8 @@ __FLOWS_JSON__
   let liveTrail = []; // [{compId, ts, tool, target}]
   const agents = new Map(); // id -> { id, status, goal, lastTool, lastTarget, lastTs, toolCount, startedAt, endedAt }
   let currentTab = 'agents';
+  let activityFilter = 'all';   // 'all' | 'attention'
+  let unreadAttentionCount = 0;
 
   const $ = (id) => document.getElementById(id);
 
@@ -900,6 +974,13 @@ __FLOWS_JSON__
     $('btn-theme').addEventListener('click', toggleTheme);
     document.querySelectorAll('.tab').forEach((b) => {
       b.addEventListener('click', () => switchTab(b.dataset.tab));
+    });
+    document.querySelectorAll('.attention-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        activityFilter = chip.dataset.filter;
+        document.querySelectorAll('.attention-chip').forEach((c) => c.classList.toggle('active', c.dataset.filter === activityFilter));
+        renderActivity();
+      });
     });
     setupResize();
     window.addEventListener('resize', () => requestAnimationFrame(redrawArrows));
@@ -1046,6 +1127,53 @@ __FLOWS_JSON__
     document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     $('panel-agents').classList.toggle('hidden', name !== 'agents');
     $('panel-activity').classList.toggle('hidden', name !== 'activity');
+    // Clear badge when user opens Activity tab
+    if (name === 'activity') {
+      unreadAttentionCount = 0;
+      updateAttentionBadge();
+    }
+  }
+
+  // ===== Risk classification =====
+  // Classifies PreToolUse events by how likely they are to need human attention.
+  function riskLevel(ev) {
+    if (ev.event !== 'pre-tool-use') return 'low';
+    const tool    = (ev.tool    || '').toLowerCase();
+    const target  = (ev.target  || '').toLowerCase();
+
+    // High risk — tool that writes, spawns, or executes shell commands
+    const highTools = ['bash', 'write', 'agent', 'task', 'taskcreate'];
+    if (highTools.includes(tool)) {
+      return 'high';
+    }
+
+    // Medium risk — file mutations or network calls
+    const mediumTools = ['edit', 'multiedit', 'webfetch', 'websearch', 'taskupdate'];
+    if (mediumTools.includes(tool)) {
+      return 'medium';
+    }
+
+    // Bash escalation: destructive command patterns upgrade to 'high' (already high)
+    // but flag Edit/other medium tools that touch sensitive paths
+    const dangerousPatterns = ['rm ', 'rm -', 'sudo ', 'git push', 'npm publish',
+      'pip install', 'brew install', 'curl | ', 'wget -', 'docker run',
+      'kubectl delete', 'drop table', 'truncate '];
+    if (tool === 'bash' && dangerousPatterns.some((p) => target.includes(p))) {
+      return 'high'; // already high, but explicit
+    }
+
+    return 'low';
+  }
+
+  function updateAttentionBadge() {
+    const badge = $('activity-badge');
+    const chipCount = $('attention-chip-count');
+    if (badge) {
+      badge.textContent = unreadAttentionCount > 0 ? unreadAttentionCount : '';
+    }
+    // Also update the chip count = total attention rows across entire feed
+    const total = activityRows.filter((ev) => riskLevel(ev) !== 'low').length;
+    if (chipCount) chipCount.textContent = total > 0 ? total : '';
   }
 
   // ===== Data loading =====
@@ -1464,6 +1592,16 @@ __FLOWS_JSON__
       for (const line of lines) {
         try { ingestActivityEvent(JSON.parse(line)); } catch (_) {}
       }
+      // Count new high/medium events for the badge (only when Activity tab is not active)
+      if (currentTab !== 'activity') {
+        const newAttention = lines.filter((l) => {
+          try { return riskLevel(JSON.parse(l)) !== 'low'; } catch (_) { return false; }
+        }).length;
+        if (newAttention > 0) {
+          unreadAttentionCount += newAttention;
+          updateAttentionBadge();
+        }
+      }
       if (currentTab === 'activity') renderActivity();
       renderAgents();
       // Kanban fallback: re-render from agents when no TodoWrite data is available.
@@ -1582,22 +1720,38 @@ __FLOWS_JSON__
   }
 
   function renderActivity() {
-    const root = $('panel-activity');
-    if (!activityRows.length) {
-      root.innerHTML = '<div class="activity-empty">No agent activity yet — run a tool and it will appear here.</div>';
+    const root = $('activity-feed-root');
+    if (!root) return;
+    updateAttentionBadge();
+
+    // Apply filter
+    let visible = activityRows.slice(-ACTIVITY_MAX_ROWS);
+    if (activityFilter === 'attention') {
+      visible = visible.filter((ev) => riskLevel(ev) !== 'low');
+    }
+
+    if (!visible.length) {
+      root.innerHTML = activityFilter === 'attention'
+        ? '<div class="activity-empty">No high-impact actions yet.</div>'
+        : '<div class="activity-empty">No agent activity yet — run a tool and it will appear here.</div>';
       return;
     }
-    const rows = activityRows.slice(-ACTIVITY_MAX_ROWS).reverse().map((ev, i) => {
-      const when = formatTime(ev.ts);
-      const who  = escapeHtml(ev.agent || 'main');
-      const tool = escapeHtml(ev.tool || ev.event || '');
-      const tgt  = escapeHtml(ev.target || '');
-      const isNew = i === 0;
+
+    const rows = visible.slice().reverse().map((ev, i) => {
+      const when    = formatTime(ev.ts);
+      const who     = escapeHtml(ev.agent || 'main');
+      const tool    = escapeHtml(ev.tool || ev.event || '');
+      const tgt     = escapeHtml(ev.target || '');
+      const risk    = riskLevel(ev);
+      const isNew   = i === 0 && activityFilter === 'all';
       const isSpawn = ev.event === 'spawn';
-      return '<div class="activity-row' + (isNew ? ' new' : '') + (isSpawn ? ' spawn' : '') + '">'
+      const riskClass = risk !== 'low' ? ' risk-' + risk : '';
+      // Risk icon prefix on high/medium events
+      const riskIcon = risk === 'high' ? '⚠ ' : risk === 'medium' ? '↕ ' : '';
+      return '<div class="activity-row' + (isNew ? ' new' : '') + (isSpawn ? ' spawn' : '') + riskClass + '">'
         +    '<div class="head">'
         +      '<span class="when">' + when + '</span>'
-        +      '<span class="who">' + who + '</span>'
+        +      '<span class="who">' + riskIcon + who + '</span>'
         +      (tool ? '<span class="tool">' + tool + '</span>' : '')
         +    '</div>'
         +    (tgt ? '<div class="target">' + tgt + '</div>' : '')
